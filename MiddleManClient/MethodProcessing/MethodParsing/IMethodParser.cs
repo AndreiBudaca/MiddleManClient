@@ -1,4 +1,4 @@
-﻿using MiddleManClient.ServerContracts;
+﻿using MiddleManClient.MethodProcessing.Models;
 using System.Reflection;
 
 namespace MiddleManClient.MethodProcessing.MethodParsing

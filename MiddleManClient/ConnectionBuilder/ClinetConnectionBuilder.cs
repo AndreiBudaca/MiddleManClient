@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.SignalR.Client;
+using Microsoft.Extensions.DependencyInjection;
 using MiddleManClient.ConnectionBuilder.Exceptions;
 
 namespace MiddleManClient.ConnectionBuilder
@@ -33,19 +34,23 @@ namespace MiddleManClient.ConnectionBuilder
       {
         throw new InvalidClientOptionsException("Host cannot be null or empty");
       }
+      
+      IHubConnectionBuilder hubConnectionBuilder = new HubConnectionBuilder();
 
-      var hubConnectionBuilder = new HubConnectionBuilder()
-        .WithUrl(_host, options =>
+      if (!string.IsNullOrEmpty(_token))
+      { 
+        hubConnectionBuilder = hubConnectionBuilder.WithUrl(_host, options =>
         {
           options.Headers.Add("Authorization", $"Bearer {_token}");
         });
+      }
 
       if (_reconnect)
       {
         hubConnectionBuilder = hubConnectionBuilder.WithAutomaticReconnect();
       }
 
-      return new ClientConnection(hubConnectionBuilder.Build());
+      return new ClientConnection(hubConnectionBuilder.AddMessagePackProtocol().Build());
     }
   }
 }

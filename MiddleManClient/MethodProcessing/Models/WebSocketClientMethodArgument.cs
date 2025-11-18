@@ -1,10 +1,8 @@
-﻿namespace MiddleManClient.ServerContracts
+﻿namespace MiddleManClient.MethodProcessing.Models
 {
   public class WebSocketClientMethodArgument
   {
     public string? Name { get; set; }
-
-    public bool IsPrimitive { get; set; }
 
     public bool IsArray {  get; set; }
 

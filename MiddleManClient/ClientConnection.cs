@@ -1,9 +1,13 @@
 ﻿using Microsoft.AspNetCore.SignalR.Client;
+using MiddleManClient.Extensions;
 using MiddleManClient.MethodProcessing.MethodDiscovery;
 using MiddleManClient.MethodProcessing.MethodFunctionHandlerGenerator;
+using MiddleManClient.MethodProcessing.MethodPacking;
 using MiddleManClient.MethodProcessing.MethodParsing;
+using MiddleManClient.MethodProcessing.Models;
 using MiddleManClient.ServerContracts;
 using System.Reflection;
+using System.Threading.Channels;
 
 namespace MiddleManClient
 {
@@ -12,11 +16,13 @@ namespace MiddleManClient
     private readonly HubConnection _connection = connection;
     private readonly List<WebSocketClientMethod> _knownMethods = [];
     private readonly Dictionary<Type, object> _methodCallingHandler = [];
+    private ServerInfo? _serverInfo;
 
     private Assembly? _assembly;
     private IClientMethodDiscoverer? _methodDiscoverer;
     private IMethodFunctionHandlerGenerator? _handlerGenerator;
     private IMethodParser? _methodParser;
+    private IMethodPacker? _methodPacker;
 
     public void UseMethodDiscovery(IClientMethodDiscoverer discoverer)
     {
@@ -48,26 +54,32 @@ namespace MiddleManClient
       _methodDiscoverer ??= IClientMethodDiscoverer.Default;
       _methodParser ??= IMethodParser.Default;
       _handlerGenerator ??= IMethodFunctionHandlerGenerator.Default;
+      _methodPacker ??= IMethodPacker.Default;
 
       var methods = _methodDiscoverer.Discover(_assembly);
+
+      await _connection.StartAsync();
+
+      _serverInfo = await _connection.InvokeAsync<ServerInfo>("ServerInfo");
 
       foreach (var method in methods)
       {
         var parsedMethod = _methodParser.Parse(method);
         _knownMethods.Add(parsedMethod);
-       
+
         _methodCallingHandler.TryGetValue(method.DeclaringType!, out var handlerInstance);
-        var functionHandler = _handlerGenerator.GenerateHandler(method, handlerInstance);
+        var functionHandler = _handlerGenerator.GenerateHandler(_connection, method, handlerInstance, _serverInfo?.MaxMessageLength ?? 4096);
         _connection.On(parsedMethod.Name, functionHandler);
       }
 
-      _connection.Reconnected += async (string? arg) =>
+      var diff = _methodPacker.GetDiff(_serverInfo?.MethodSignature, _knownMethods);
+      if (diff != null && diff.Length > 0)
       {
-        await _connection.InvokeAsync("AddMethodInfo", _knownMethods);
-      };
-
-      await _connection.StartAsync();
-      await _connection.InvokeAsync("AddMethodInfo", _knownMethods);
+        var channel = Channel.CreateUnbounded<byte[]>();
+        await _connection.SendAsync("Methods", channel.Reader);
+        await channel.Writer.WriteChunkedData(_serverInfo?.MaxMessageLength ?? 4096, diff);
+        channel.Writer.Complete();
+      }
     }
   }
 }

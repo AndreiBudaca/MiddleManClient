@@ -1,4 +1,4 @@
-﻿using MiddleManClient.ServerContracts;
+﻿using MiddleManClient.MethodProcessing.Models;
 using System.Reflection;
 
 namespace MiddleManClient.MethodProcessing.MethodParsing
@@ -7,11 +7,18 @@ namespace MiddleManClient.MethodProcessing.MethodParsing
   {
     public WebSocketClientMethod Parse(MethodInfo methodInfo)
     {
+      var aux = new
+      {
+        methodInfo.Name,
+        Parameters = methodInfo.GetParameters().Select(x => DescribeType(x.Name, x.ParameterType)).ToList(),
+        ReturnType = GetReturnType(methodInfo)
+      };
+
       return new WebSocketClientMethod
       {
         Name = methodInfo.Name,
-        Arguments = [.. methodInfo.GetParameters().Select(x => DescribeType(x.Name,x.ParameterType))],
-        Returns = GetReturnType(methodInfo)
+        Arguments = aux.Parameters,
+        Returns = aux.ReturnType,
       };
     }
 
@@ -25,8 +32,12 @@ namespace MiddleManClient.MethodProcessing.MethodParsing
       return DescribeType(null, methodInfo.ReturnType);
     }
 
-    private static WebSocketClientMethodArgument DescribeType(string? name, Type type)
+    private static WebSocketClientMethodArgument DescribeType(string? name, Type type, int depth = 0)
     {
+      if (depth > 32) {
+        throw new InvalidOperationException("Type depth exceeds maximum allowed depth of 32.");
+      }
+
       if (type.IsEnum)
       {
         throw new NotSupportedException("Enum types are not supported in method arguments or return types.");
@@ -41,7 +52,7 @@ namespace MiddleManClient.MethodProcessing.MethodParsing
       if (type.IsArray)
       {
         var elementType = type.GetElementType()!;
-        var elementDescription = DescribeType(name, elementType);
+        var elementDescription = DescribeType(name, elementType, depth + 1);
         elementDescription.IsArray = true;
 
         return elementDescription;
@@ -51,17 +62,16 @@ namespace MiddleManClient.MethodProcessing.MethodParsing
       if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(List<>))
       {
         var elementType = type.GetGenericArguments()[0];
-        var elementDescription = DescribeType(name, elementType);
+        var elementDescription = DescribeType(name, elementType, depth + 1);
         elementDescription.IsArray = true;
 
         return elementDescription;
       }
-      
+
       var argument = new WebSocketClientMethodArgument
       {
         Name = name,
         Type = type.FullName,
-        IsPrimitive = type.IsPrimitive || type == typeof(string) || type == typeof(decimal),
         IsArray = type.IsArray,
         IsNullable = Nullable.GetUnderlyingType(type) != null,
         IsNumeric = IsNumericType(type),
@@ -69,7 +79,7 @@ namespace MiddleManClient.MethodProcessing.MethodParsing
       };
       
       // Primitives
-      if (argument.IsPrimitive)
+      if (type.IsPrimitive || type == typeof(string) || type == typeof(decimal))
       {
         return argument;
       }
@@ -77,7 +87,7 @@ namespace MiddleManClient.MethodProcessing.MethodParsing
       // Objects
       foreach (var prop in type.GetProperties(BindingFlags.Public | BindingFlags.Instance))
       {
-        argument.Components.Add(DescribeType(prop.Name, prop.PropertyType));
+        argument.Components.Add(DescribeType(prop.Name, prop.PropertyType, depth + 1));
       }
 
       return argument;

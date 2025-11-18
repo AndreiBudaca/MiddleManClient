@@ -1,4 +1,4 @@
-﻿namespace MiddleManClient.ServerContracts
+﻿namespace MiddleManClient.MethodProcessing.Models
 {
   public class WebSocketClientMethod
   {
