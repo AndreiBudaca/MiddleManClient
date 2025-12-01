@@ -7,19 +7,19 @@ namespace MiddleManClient.MethodProcessing.MethodParsing
   {
     public WebSocketClientMethod Parse(MethodInfo methodInfo)
     {
-      var aux = new
-      {
-        methodInfo.Name,
-        Parameters = methodInfo.GetParameters().Select(x => DescribeType(x.Name, x.ParameterType)).ToList(),
-        ReturnType = GetReturnType(methodInfo)
-      };
-
-      return new WebSocketClientMethod
+      var methodData = new WebSocketClientMethod
       {
         Name = methodInfo.Name,
-        Arguments = aux.Parameters,
-        Returns = aux.ReturnType,
+        Arguments = methodInfo.GetParameters().Select(x => DescribeType(x.Name, x.ParameterType)).ToList(),
+        Returns = GetReturnType(methodInfo)
       };
+
+      if (methodData.Arguments.Any(x => x.IsBinary) && methodData.Arguments.Count > 1)
+      {
+        throw new NotSupportedException("Methods that accept binary data can declare only one parameter");
+      }
+
+      return methodData;
     }
 
     private static WebSocketClientMethodArgument? GetReturnType(MethodInfo methodInfo)
@@ -29,18 +29,45 @@ namespace MiddleManClient.MethodProcessing.MethodParsing
         return null;
       }
 
+      // Tasks
+      if (methodInfo.ReturnType == typeof(Task))
+      {
+        return null;
+      }
+
+      if (methodInfo.ReturnType.IsGenericType && methodInfo.ReturnType.GetGenericTypeDefinition() == typeof(Task<>))
+      {
+        return DescribeType(null, methodInfo.ReturnType.GetGenericArguments()[0]);
+      }
+
       return DescribeType(null, methodInfo.ReturnType);
     }
 
     private static WebSocketClientMethodArgument DescribeType(string? name, Type type, int depth = 0)
     {
-      if (depth > 32) {
-        throw new InvalidOperationException("Type depth exceeds maximum allowed depth of 32.");
+      // Check for binary methods
+      if (depth == 0 && type.IsGenericType && type.GetGenericTypeDefinition() == typeof(IAsyncEnumerable<>))
+      {
+        var elementType = type.GetGenericArguments()[0];
+        if (elementType.IsArray && elementType.GetElementType() == typeof(byte))
+        {
+          return new WebSocketClientMethodArgument
+          {
+            Name = name,
+            Type = type.FullName,
+            IsBinary = true,
+          };
+        }
       }
 
-      if (type.IsEnum)
+      if (depth > 32) 
       {
-        throw new NotSupportedException("Enum types are not supported in method arguments or return types.");
+        throw new NotSupportedException("Type depth exceeds maximum allowed depth of 32.");
+      }
+
+      if (type.IsEnum || type.IsAbstract || type.IsInterface)
+      {
+        throw new NotSupportedException($"Type {type.Name} is not supported in method arguments or return types.");
       }
 
       if (type == typeof(object))

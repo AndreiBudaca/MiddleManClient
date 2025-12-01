@@ -12,6 +12,8 @@
 
     public bool IsBoolean { get; set; }
 
+    public bool IsBinary { get; set; }
+
     public string? Type { get; set; }
 
     public List<WebSocketClientMethodArgument> Components { get; set; } = [];

@@ -7,7 +7,6 @@ using MiddleManClient.MethodProcessing.MethodParsing;
 using MiddleManClient.MethodProcessing.Models;
 using MiddleManClient.ServerContracts;
 using System.Reflection;
-using System.Threading.Channels;
 
 namespace MiddleManClient
 {
@@ -68,17 +67,14 @@ namespace MiddleManClient
         _knownMethods.Add(parsedMethod);
 
         _methodCallingHandler.TryGetValue(method.DeclaringType!, out var handlerInstance);
-        var functionHandler = _handlerGenerator.GenerateHandler(_connection, method, handlerInstance, _serverInfo?.MaxMessageLength ?? 4096);
+        var functionHandler = _handlerGenerator.GenerateHandler(_connection, method, parsedMethod, handlerInstance, _serverInfo?.MaxMessageLength ?? 4096);
         _connection.On(parsedMethod.Name, functionHandler);
       }
 
       var diff = _methodPacker.GetDiff(_serverInfo?.MethodSignature, _knownMethods);
       if (diff != null && diff.Length > 0)
       {
-        var channel = Channel.CreateUnbounded<byte[]>();
-        await _connection.SendAsync("Methods", channel.Reader);
-        await channel.Writer.WriteChunkedData(_serverInfo?.MaxMessageLength ?? 4096, diff);
-        channel.Writer.Complete();
+        await _connection.SendChunksAsync("Methods", _serverInfo?.MaxMessageLength ?? 4096, diff);
       }
     }
   }

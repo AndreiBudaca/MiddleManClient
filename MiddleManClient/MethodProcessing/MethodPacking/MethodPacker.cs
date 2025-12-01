@@ -88,6 +88,7 @@ namespace MiddleManClient.MethodProcessing.MethodPacking
       if (argument.IsNullable) flags |= 0x04;
       if (argument.IsNumeric) flags |= 0x08;
       if (argument.IsBoolean) flags |= 0x10;
+      if (argument.IsBinary) flags |= 0x20;
 
       argumentHeader = argumentHeader.Concat([flags]);
 
