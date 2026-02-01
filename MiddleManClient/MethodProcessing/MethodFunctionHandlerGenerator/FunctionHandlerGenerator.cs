@@ -2,6 +2,7 @@
 using MiddleManClient.MethodProcessing.MethodFunctionHandlerGenerator.MethodInvoking;
 using MiddleManClient.MethodProcessing.MethodFunctionHandlerGenerator.MethodResponseHandling;
 using MiddleManClient.MethodProcessing.Models;
+using MiddleManClient.ServerContracts;
 using System.Reflection;
 using System.Threading.Channels;
 
@@ -25,11 +26,13 @@ namespace MiddleManClient.MethodProcessing.MethodFunctionHandlerGenerator
         
         try
         {
+          var (serverContext, additionalItem) = await ServerContextParser.ParseServerContext(serverChannel);
+
           var result = await MethodInvokingFactory.GetInvokingStrategy(methodDescription)
-            .Invoke(methodInfo, methodHandler, serverChannel);
+            .Invoke(methodInfo, methodHandler, serverChannel, serverContext, additionalItem);
 
           await MethodResultHandlingFactory.GetResultHandlingStrategy(methodDescription)
-            .HandleResult(result, clientChannel.Writer, maxMessageLength);
+            .HandleResult(result, clientChannel.Writer, maxMessageLength, serverContext);
         }
         catch (Exception ex)
         {

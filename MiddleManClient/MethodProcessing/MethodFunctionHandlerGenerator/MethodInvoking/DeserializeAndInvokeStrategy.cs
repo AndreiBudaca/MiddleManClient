@@ -1,4 +1,5 @@
-﻿using System.Reflection;
+﻿using MiddleManClient.ServerContracts;
+using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Threading.Channels;
@@ -7,34 +8,41 @@ namespace MiddleManClient.MethodProcessing.MethodFunctionHandlerGenerator.Method
 {
   public class DeserializeAndInvokeStrategy : IMethodInvokingStrategy
   {
-    public async Task<object?> Invoke(MethodInfo methodInfo, object? methodHandler, ChannelReader<byte[]> serverChannel)
+    public async Task<object?> Invoke(MethodInfo methodInfo, object? methodHandler, ChannelReader<byte[]> serverChannel, ServerContext context, byte[] additionalItem)
     {
-      var serverData = await ReadServerDataAsync(serverChannel);
+      var serverData = await ReadServerDataAsync(serverChannel, additionalItem);
       var parameters = methodInfo.GetParameters();
-      var args = Array.Empty<object?>();
+      var args = new object?[parameters.Length];
 
       if (parameters.Length > 0)
       {
         var rawArgs = JsonSerializer.Deserialize<JsonArray>(serverData) ??
          throw new InvalidOperationException($"Cannot process input data");
 
-        args = Enumerable.Range(0, parameters.Length)
-          .Select(i =>
+        int rawArgPos = 0;
+        for (int i = 0; i < parameters.Length; i++)
+        {
+          if (parameters[i].ParameterType == typeof(ServerContext))
           {
-            var rawArg = i < rawArgs.Count ? rawArgs[i] : null;
-            var parameter = parameters[i];
-
-            return rawArg?.Deserialize(parameter.ParameterType) ?? GetDefaultInstance(parameter.ParameterType);
-          })
-          .ToArray();
+            args[i] = context;
+          }
+          else
+          {
+            var rawArg = rawArgPos < rawArgs.Count ? rawArgs[rawArgPos] : null;
+            args[i] = rawArg?.Deserialize(parameters[i].ParameterType) ?? GetDefaultInstance(parameters[i].ParameterType);
+            ++rawArgPos;
+          }
+        }
       }
 
       return methodInfo.Invoke(methodHandler, args);
     }
 
-    private static async Task<Stream> ReadServerDataAsync(ChannelReader<byte[]> serverChannel)
+    private static async Task<Stream> ReadServerDataAsync(ChannelReader<byte[]> serverChannel, byte[] additionalItem)
     {
       var dataStream = new MemoryStream();
+      dataStream.Write(additionalItem, 0, additionalItem.Length);
+
       await foreach (var serverData in serverChannel.ReadAllAsync())
       {
         await dataStream.WriteAsync(serverData);

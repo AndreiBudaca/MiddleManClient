@@ -1,4 +1,5 @@
 ﻿using MiddleManClient.MethodProcessing.Models;
+using MiddleManClient.ServerContracts;
 using System.Reflection;
 
 namespace MiddleManClient.MethodProcessing.MethodParsing
@@ -10,7 +11,7 @@ namespace MiddleManClient.MethodProcessing.MethodParsing
       var methodData = new WebSocketClientMethod
       {
         Name = methodInfo.Name,
-        Arguments = methodInfo.GetParameters().Select(x => DescribeType(x.Name, x.ParameterType)).ToList(),
+        Arguments = methodInfo.GetParameters().Where(x => x.ParameterType != typeof(ServerContext)).Select(x => DescribeType(x.Name, x.ParameterType)).ToList(),
         Returns = GetReturnType(methodInfo)
       };
 
