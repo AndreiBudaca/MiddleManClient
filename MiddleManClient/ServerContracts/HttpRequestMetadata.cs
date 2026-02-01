@@ -6,6 +6,8 @@
 
     public string Path { get; set; } = "/";
 
+    public HttpUser? User { get; set; }
+
     public List<HttpHeader> Headers { get; set; } = [];
   }
 }

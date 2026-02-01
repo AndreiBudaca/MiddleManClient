@@ -76,6 +76,13 @@ namespace MiddleManClient
       {
         await _connection.SendChunksAsync("Methods", _serverInfo?.MaxMessageLength ?? 4096, diff);
       }
+
+      // Infinite wait to keep the connection alive
+      var infiniteLock = new object();
+      lock (infiniteLock)
+      {
+        Monitor.Wait(infiniteLock);
+      }
     }
   }
 }
