@@ -26,8 +26,6 @@ namespace MiddleManClient.MethodProcessing.MethodFunctionHandlerGenerator.Method
         }
         await writer.WriteChunkedData(maxChunkSize, item);
       }
-
-      writer.Complete();
     }
   }
 }

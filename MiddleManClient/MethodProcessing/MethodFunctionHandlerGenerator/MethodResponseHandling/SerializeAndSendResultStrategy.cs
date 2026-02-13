@@ -22,7 +22,6 @@ namespace MiddleManClient.MethodProcessing.MethodFunctionHandlerGenerator.Method
       var data = result != null ? JsonSerializer.SerializeToUtf8Bytes(result) : [];
 
       await writer.WriteChunkedData(maxChunkSize, data);
-      writer.Complete();
     }
   }
 }
