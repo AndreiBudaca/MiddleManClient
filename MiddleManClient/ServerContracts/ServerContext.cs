@@ -1,14 +1,21 @@
 ﻿namespace MiddleManClient.ServerContracts
 {
-  public class ServerContext
+  public class ServerContext(HttpRequestMetadata requestMetadata)
   {
-    public HttpRequestMetadata Request { get; }
+    private HttpResponseMetadata _response = new HttpResponseMetadata();
 
-    public HttpResponseMetadata Response { get; } = new HttpResponseMetadata();
+    public HttpRequestMetadata Request { get; } = requestMetadata;
 
-    public ServerContext(HttpRequestMetadata requestMetadata)
-    {
-      Request = requestMetadata;
+    public bool IsMetadataSet { get; private set; } = false;
+
+    public HttpResponseMetadata Response 
+    { 
+      get
+      {
+        IsMetadataSet = true;
+        return _response;
+      }
+      private set { _response = value; }
     }
   }
 }

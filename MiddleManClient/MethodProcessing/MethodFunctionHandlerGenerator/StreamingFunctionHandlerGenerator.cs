@@ -7,25 +7,25 @@ using System.Threading.Channels;
 
 namespace MiddleManClient.MethodProcessing.MethodFunctionHandlerGenerator
 {
-  public class FunctionHandlerGenerator : IMethodFunctionHandlerGenerator
+  public class StreamingFunctionHandlerGenerator : IMethodFunctionHandlerGenerator
   {
-    public Func<Guid, Task> GenerateHandler(HubConnection connection, MethodInfo methodInfo, WebSocketClientMethod methodDescription,  object? methodHandler, int maxMessageLength)
+    public void GenerateHandler(HubConnection connection, MethodInfo methodInfo, WebSocketClientMethod methodDescription, object? methodHandler, int maxMessageLength)
     {
       if (!methodInfo.IsStatic && methodHandler == null)
       {
         throw new ArgumentNullException(nameof(methodHandler), "Method handler instance cannot be null for instance methods.");
       }
 
-      return async (Guid session) =>
+      connection.On(methodDescription.Name, async (Guid session) =>
       {
         var clientChannel = Channel.CreateBounded<byte[]>(new BoundedChannelOptions(1));
         var serverChannel = await connection.StreamAsChannelAsync<byte[]>("SubscribeToServer", session);
-        
+
         await connection.SendAsync("AddReadChannel", session, clientChannel.Reader);
-        
+
         try
         {
-          var (serverContext, additionalItem) = await ServerContextParser.ParseServerContext(serverChannel);
+          var (serverContext, additionalItem) = await ServerContextParser.ParseServerContextFromStream(serverChannel);
 
           var result = await MethodInvokingFactory.GetInvokingStrategy(methodDescription)
             .Invoke(methodInfo, methodHandler, serverChannel, serverContext, additionalItem);
@@ -36,12 +36,13 @@ namespace MiddleManClient.MethodProcessing.MethodFunctionHandlerGenerator
         catch (Exception ex)
         {
           Console.WriteLine(ex);
+          throw;
         }
         finally
         {
           clientChannel.Writer.Complete();
         }
-      };
+      });
     }
   }
 }

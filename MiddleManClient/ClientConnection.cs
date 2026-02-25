@@ -17,49 +17,57 @@ namespace MiddleManClient
     private readonly Dictionary<Type, object> _methodCallingHandler = [];
     private ServerInfo? _serverInfo;
 
+    private bool requestHttpMetadata = false;
     private Assembly? _assembly;
-    private IClientMethodDiscoverer? _methodDiscoverer;
-    private IMethodFunctionHandlerGenerator? _handlerGenerator;
-    private IMethodParser? _methodParser;
-    private IMethodPacker? _methodPacker;
+    private IClientMethodDiscoverer _methodDiscoverer = IClientMethodDiscoverer.Default;
+    private IMethodFunctionHandlerGenerator _handlerGenerator = IMethodFunctionHandlerGenerator.Default;
+    private IMethodParser _methodParser = IMethodParser.Default;
+    private IMethodPacker _methodPacker = IMethodPacker.Default;
 
-    public void UseMethodDiscovery(IClientMethodDiscoverer discoverer)
+    public ClientConnection RequestHttpMetadata(bool value)
     {
-      _methodDiscoverer = discoverer;
+      requestHttpMetadata = value;
+      return this;
     }
 
-    public void UseMethodFunctionHandlerGenerator(IMethodFunctionHandlerGenerator generator)
-    {
-      _handlerGenerator = generator;
-    }
-
-    public void UseMethodParser(IMethodParser parser)
-    {
-      _methodParser = parser;
-    }
-
-    public void UseAssembly(Assembly assembly)
+    public ClientConnection UseAssembly(Assembly assembly)
     {
       _assembly = assembly;
+      return this;
     }
 
-    public void AddMethodCallingHandler<T>(T handler) where T : class
+    public ClientConnection UseMethodDiscovery(IClientMethodDiscoverer discoverer)
+    {
+      _methodDiscoverer = discoverer;
+      return this;
+    }
+
+    public ClientConnection UseMethodFunctionHandlerGenerator(IMethodFunctionHandlerGenerator generator)
+    {
+      _handlerGenerator = generator;
+      return this;
+    }
+
+    public ClientConnection UseMethodParser(IMethodParser parser)
+    {
+      _methodParser = parser;
+      return this;
+    }
+
+    public ClientConnection AddMethodCallingHandler<T>(T handler) where T : class
     {
       _methodCallingHandler[typeof(T)] = handler;
+      return this;
     }
 
     public async Task StartAsync()
     {
-      _methodDiscoverer ??= IClientMethodDiscoverer.Default;
-      _methodParser ??= IMethodParser.Default;
-      _handlerGenerator ??= IMethodFunctionHandlerGenerator.Default;
-      _methodPacker ??= IMethodPacker.Default;
-
       var methods = _methodDiscoverer.Discover(_assembly);
 
       await _connection.StartAsync();
 
-      _serverInfo = await _connection.InvokeAsync<ServerInfo>("ServerInfo");
+      _serverInfo = await _connection.InvokeAsync<ServerInfo>("Negociate", new ClientInfo(requestHttpMetadata));
+      if (!_serverInfo.IsAccepted) throw new Exception("Connection rejected by server");
 
       foreach (var method in methods)
       {
@@ -67,8 +75,7 @@ namespace MiddleManClient
         _knownMethods.Add(parsedMethod);
 
         _methodCallingHandler.TryGetValue(method.DeclaringType!, out var handlerInstance);
-        var functionHandler = _handlerGenerator.GenerateHandler(_connection, method, parsedMethod, handlerInstance, _serverInfo?.MaxMessageLength ?? 4096);
-        _connection.On(parsedMethod.Name, functionHandler);
+        _handlerGenerator.GenerateHandler(_connection, method, parsedMethod, handlerInstance, _serverInfo?.MaxMessageLength ?? 4096);
       }
 
       var diff = _methodPacker.GetDiff(_serverInfo?.MethodSignature, _knownMethods);

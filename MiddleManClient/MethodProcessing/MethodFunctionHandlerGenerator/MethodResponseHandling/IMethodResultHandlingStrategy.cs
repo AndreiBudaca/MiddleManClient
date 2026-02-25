@@ -6,5 +6,6 @@ namespace MiddleManClient.MethodProcessing.MethodFunctionHandlerGenerator.Method
   public interface IMethodResultHandlingStrategy
   {
     public Task HandleResult(object? result, ChannelWriter<byte[]> writer, int maxChunkSize, ServerContext context);
+    public Task<byte[]> HandleResult(object? result, int maxChunkSize, ServerContext context);
   }
 }

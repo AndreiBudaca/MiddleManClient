@@ -22,10 +22,24 @@ namespace MiddleManClient.MethodProcessing.MethodFunctionHandlerGenerator.Method
         if (firstItem)
         {
           firstItem = false;
-          await writer.WriteChunkedData(maxChunkSize, context.Response.SerializeJson());
+
+          if (context.IsMetadataSet)
+          {
+            await writer.WriteChunkedData(maxChunkSize, context.Response.SerializeJson());
+          }
+          else
+          {
+            await writer.WriteChunkedData(maxChunkSize, BitConverter.GetBytes(0));
+          }
         }
+
         await writer.WriteChunkedData(maxChunkSize, item);
       }
+    }
+
+    public Task<byte[]> HandleResult(object? result, int maxChunkSize, ServerContext context)
+    {
+      throw new NotImplementedException();
     }
   }
 }
