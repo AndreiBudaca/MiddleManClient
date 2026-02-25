@@ -3,7 +3,6 @@ using MiddleManClient.MethodProcessing.MethodFunctionHandlerGenerator.MethodInvo
 using MiddleManClient.MethodProcessing.MethodFunctionHandlerGenerator.MethodResponseHandling;
 using MiddleManClient.MethodProcessing.Models;
 using System.Reflection;
-using System.Threading.Channels;
 
 namespace MiddleManClient.MethodProcessing.MethodFunctionHandlerGenerator
 {
@@ -16,14 +15,14 @@ namespace MiddleManClient.MethodProcessing.MethodFunctionHandlerGenerator
         throw new ArgumentNullException(nameof(methodHandler), "Method handler instance cannot be null for instance methods.");
       }
 
-      connection.On<byte[], Task<byte[]>>(methodDescription.Name, async (byte[] data) =>
+      connection.On<byte[], byte[]>(methodDescription.Name, async buffer =>
       {
         try
         {
-          var (serverContext, bufferOffset) = ServerContextParser.ParseServerContextFromBuffer(data);
+          var (serverContext, bufferOffset) = ServerContextParser.ParseServerContextFromBuffer(buffer);
 
           var rawResult = MethodInvokingFactory.GetInvokingStrategy(methodDescription)
-            .Invoke(methodInfo, methodHandler, data, bufferOffset, serverContext);
+            .Invoke(methodInfo, methodHandler, buffer, bufferOffset, serverContext);
 
           return await MethodResultHandlingFactory.GetResultHandlingStrategy(methodDescription)
             .HandleResult(rawResult, maxMessageLength, serverContext);

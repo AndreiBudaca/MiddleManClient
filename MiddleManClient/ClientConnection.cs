@@ -17,7 +17,7 @@ namespace MiddleManClient
     private readonly Dictionary<Type, object> _methodCallingHandler = [];
     private ServerInfo? _serverInfo;
 
-    private bool requestHttpMetadata = false;
+    private readonly ClientInfo info = new();
     private Assembly? _assembly;
     private IClientMethodDiscoverer _methodDiscoverer = IClientMethodDiscoverer.Default;
     private IMethodFunctionHandlerGenerator _handlerGenerator = IMethodFunctionHandlerGenerator.Default;
@@ -26,7 +26,13 @@ namespace MiddleManClient
 
     public ClientConnection RequestHttpMetadata(bool value)
     {
-      requestHttpMetadata = value;
+      info.SendHTTPMetadata = value;
+      return this;
+    }
+
+    public ClientConnection UseStreaming(bool value)
+    {
+      info.SupportsStreaming = value;
       return this;
     }
 
@@ -66,7 +72,7 @@ namespace MiddleManClient
 
       await _connection.StartAsync();
 
-      _serverInfo = await _connection.InvokeAsync<ServerInfo>("Negociate", new ClientInfo(requestHttpMetadata));
+      _serverInfo = await _connection.InvokeAsync<ServerInfo>("Negociate", info);
       if (!_serverInfo.IsAccepted) throw new Exception("Connection rejected by server");
 
       foreach (var method in methods)
