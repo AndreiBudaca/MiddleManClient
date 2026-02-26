@@ -30,12 +30,6 @@ namespace MiddleManClient
       return this;
     }
 
-    public ClientConnection UseStreaming(bool value)
-    {
-      info.SupportsStreaming = value;
-      return this;
-    }
-
     public ClientConnection UseAssembly(Assembly assembly)
     {
       _assembly = assembly;
@@ -51,6 +45,8 @@ namespace MiddleManClient
     public ClientConnection UseMethodFunctionHandlerGenerator(IMethodFunctionHandlerGenerator generator)
     {
       _handlerGenerator = generator;
+      info.SupportsStreaming = generator.SupportsStreaming;
+
       return this;
     }
 

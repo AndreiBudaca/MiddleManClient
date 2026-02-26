@@ -9,6 +9,8 @@ namespace MiddleManClient.MethodProcessing.MethodFunctionHandlerGenerator
 {
   public class StreamingFunctionHandlerGenerator : IMethodFunctionHandlerGenerator
   {
+    public bool SupportsStreaming => true;
+
     public void GenerateHandler(HubConnection connection, MethodInfo methodInfo, WebSocketClientMethod methodDescription, object? methodHandler, int maxMessageLength)
     {
       if (!methodInfo.IsStatic && methodHandler == null)

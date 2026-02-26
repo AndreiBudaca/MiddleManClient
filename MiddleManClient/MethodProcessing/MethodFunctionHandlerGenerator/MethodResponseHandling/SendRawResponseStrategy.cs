@@ -37,7 +37,7 @@ namespace MiddleManClient.MethodProcessing.MethodFunctionHandlerGenerator.Method
       }
     }
 
-    public Task<byte[]> HandleResult(object? result, int maxChunkSize, ServerContext context)
+    public Task<byte[]> HandleResult(object? result, int maxChunkSize)
     {
       throw new NotImplementedException();
     }

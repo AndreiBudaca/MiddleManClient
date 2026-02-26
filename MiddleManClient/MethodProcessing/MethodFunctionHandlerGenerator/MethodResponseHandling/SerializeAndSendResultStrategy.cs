@@ -19,20 +19,14 @@ namespace MiddleManClient.MethodProcessing.MethodFunctionHandlerGenerator.Method
       await writer.WriteChunkedData(maxChunkSize, data);
     }
 
-    public async Task<byte[]> HandleResult(object? result, int maxChunkSize, ServerContext context)
+    public async Task<byte[]> HandleResult(object? result, int maxChunkSize)
     {
-      var metadataBytes = context.IsMetadataSet ? context.Response.SerializeJson() : BitConverter.GetBytes(0);
-
       var rawResult = await GetRawResult(result).ConfigureAwait(false);
       var dataBytes = rawResult != null ? JsonSerializer.SerializeToUtf8Bytes(rawResult) : [];
 
-      if (metadataBytes.Length + dataBytes.Length <= maxChunkSize)
+      if (dataBytes.Length <= maxChunkSize)
       {
-        var combined = new byte[metadataBytes.Length + dataBytes.Length];
-        Buffer.BlockCopy(metadataBytes, 0, combined, 0, metadataBytes.Length);
-        Buffer.BlockCopy(dataBytes, 0, combined, metadataBytes.Length, dataBytes.Length);
-        
-        return combined;
+        return dataBytes;
       }
       else
       {
