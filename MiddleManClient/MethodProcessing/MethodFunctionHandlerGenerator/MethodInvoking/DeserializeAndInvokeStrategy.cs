@@ -16,9 +16,9 @@ namespace MiddleManClient.MethodProcessing.MethodFunctionHandlerGenerator.Method
 
     public object? Invoke(MethodInfo methodInfo, object? methodHandler, byte[] serverData, ServerContext context)
     {
-      var rawArgs = JsonSerializer.Deserialize<JsonArray>(serverData) ??
-         throw new InvalidOperationException($"Cannot process input data");;
-
+      var rawArgs = (serverData.Length > 0 ? JsonSerializer.Deserialize<JsonArray>(serverData) : [])
+       ?? throw new InvalidOperationException($"Cannot process input data");
+       
       return InvokeWithArgs(methodInfo, methodHandler, rawArgs, context);
     }
 

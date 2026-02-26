@@ -8,6 +8,6 @@
 
     public HttpUser? User { get; set; }
 
-    public List<HttpHeader> Headers { get; set; } = [];
+    public Dictionary<string, string?> Headers { get; set; } = [];
   }
 }
