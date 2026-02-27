@@ -10,15 +10,25 @@ namespace MiddleManClient.MethodProcessing.MethodFunctionHandlerGenerator.Method
   {
     public async Task<object?> Invoke(MethodInfo methodInfo, object? methodHandler, ChannelReader<byte[]> serverChannel, ServerContext context, byte[] additionalItem)
     {
-      var serverData = await ReadServerDataAsync(serverChannel, additionalItem);
+      var rawArgs = await ReadServerStreamDataAsync(serverChannel, additionalItem);
+      return InvokeWithArgs(methodInfo, methodHandler, rawArgs, context);
+    }
+
+    public object? Invoke(MethodInfo methodInfo, object? methodHandler, byte[] serverData, ServerContext context)
+    {
+      var rawArgs = (serverData.Length > 0 ? JsonSerializer.Deserialize<JsonArray>(serverData) : [])
+       ?? throw new InvalidOperationException($"Cannot process input data");
+       
+      return InvokeWithArgs(methodInfo, methodHandler, rawArgs, context);
+    }
+
+    private static object? InvokeWithArgs(MethodInfo methodInfo, object? methodHandler, JsonArray rawArgs, ServerContext context)
+    {
       var parameters = methodInfo.GetParameters();
       var args = new object?[parameters.Length];
 
       if (parameters.Length > 0)
       {
-        var rawArgs = JsonSerializer.Deserialize<JsonArray>(serverData) ??
-         throw new InvalidOperationException($"Cannot process input data");
-
         int rawArgPos = 0;
         for (int i = 0; i < parameters.Length; i++)
         {
@@ -38,7 +48,7 @@ namespace MiddleManClient.MethodProcessing.MethodFunctionHandlerGenerator.Method
       return methodInfo.Invoke(methodHandler, args);
     }
 
-    private static async Task<Stream> ReadServerDataAsync(ChannelReader<byte[]> serverChannel, byte[] additionalItem)
+    private static async Task<JsonArray> ReadServerStreamDataAsync(ChannelReader<byte[]> serverChannel, byte[] additionalItem)
     {
       var dataStream = new MemoryStream();
       dataStream.Write(additionalItem, 0, additionalItem.Length);
@@ -49,7 +59,8 @@ namespace MiddleManClient.MethodProcessing.MethodFunctionHandlerGenerator.Method
       }
 
       dataStream.Position = 0;
-      return dataStream;
+      return JsonSerializer.Deserialize<JsonArray>(dataStream) ??
+         throw new InvalidOperationException($"Cannot process input data");;
     }
 
     private static object? GetDefaultInstance(Type t)

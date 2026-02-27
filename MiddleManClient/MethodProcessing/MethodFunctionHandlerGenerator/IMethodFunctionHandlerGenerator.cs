@@ -6,8 +6,10 @@ namespace MiddleManClient.MethodProcessing.MethodFunctionHandlerGenerator
 {
   public interface IMethodFunctionHandlerGenerator
   {
-    public Func<Guid, Task> GenerateHandler(HubConnection connection, MethodInfo methodInfo, WebSocketClientMethod methodDescription, object? methodHandler, int maxMessageLength);
+    public bool SupportsStreaming { get; }
 
-    public static IMethodFunctionHandlerGenerator Default { get => new FunctionHandlerGenerator(); }
+    public void GenerateHandler(HubConnection connection, MethodInfo methodInfo, WebSocketClientMethod methodDescription, object? methodHandler, int maxMessageLength);
+
+    public static IMethodFunctionHandlerGenerator Default { get => new StreamingFunctionHandlerGenerator(); }
   }
 }

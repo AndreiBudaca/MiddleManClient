@@ -17,5 +17,10 @@ namespace MiddleManClient.MethodProcessing.MethodFunctionHandlerGenerator.Method
 
       return methodInfo.Invoke(methodHandler, [context, enumerable]);
     }
+
+    public object? Invoke(MethodInfo methodInfo, object? methodHandler, byte[] serverData, ServerContext context)
+    {
+      throw new NotImplementedException();
+    }
   }
 }
