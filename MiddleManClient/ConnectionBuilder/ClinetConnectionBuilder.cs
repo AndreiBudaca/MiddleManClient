@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.SignalR.Client;
+﻿using Microsoft.AspNetCore.Http.Connections;
+using Microsoft.AspNetCore.SignalR.Client;
 using Microsoft.Extensions.DependencyInjection;
 using MiddleManClient.ConnectionBuilder.Exceptions;
 
@@ -42,6 +43,8 @@ namespace MiddleManClient.ConnectionBuilder
         hubConnectionBuilder = hubConnectionBuilder.WithUrl(_host, options =>
         {
           options.Headers.Add("Authorization", $"Bearer {_token}");
+          options.SkipNegotiation = true;
+          options.Transports = HttpTransportType.WebSockets;
         });
       }
 
