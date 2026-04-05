@@ -7,7 +7,7 @@ namespace MiddleManClient.Extensions
   {
     public static async Task SendChunksAsync(this HubConnection connection, string serverMethod, int chunkSize, byte[] data)
     {
-      var channel = Channel.CreateUnbounded<byte[]>();
+      var channel = Channel.CreateBounded<byte[]>(1);
       await connection.SendAsync(serverMethod, channel.Reader);
       await channel.Writer.WriteChunkedData(chunkSize, data);
       channel.Writer.Complete();

@@ -20,7 +20,7 @@ namespace MiddleManClient.MethodProcessing.MethodFunctionHandlerGenerator
 
       connection.On(methodDescription.Name, async (Guid session) =>
       {
-        var clientChannel = Channel.CreateBounded<byte[]>(new BoundedChannelOptions(1));
+        var clientChannel = Channel.CreateBounded<byte[]>(1);
         var serverChannel = await connection.StreamAsChannelAsync<byte[]>("SubscribeToServer", session);
 
         await connection.SendAsync("AddReadChannel", session, clientChannel.Reader);

@@ -66,8 +66,19 @@ namespace MiddleManClient
     {
       var methods = _methodDiscoverer.Discover(_assembly);
 
-      await _connection.StartAsync();
+      _connection.Reconnected += async (string? arg) =>
+      {
+        Console.WriteLine("Reconnected to server, renegociating...");
+        _serverInfo = await _connection.InvokeAsync<ServerInfo>("Negociate", info);
+        if (!_serverInfo.IsAccepted) throw new Exception("Connection rejected by server");
+      };
 
+      using (var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10)))
+      {
+        await _connection.StartAsync(cts.Token);
+      }
+
+      Console.WriteLine("Connected to server, negotiating...");
       _serverInfo = await _connection.InvokeAsync<ServerInfo>("Negociate", info);
       if (!_serverInfo.IsAccepted) throw new Exception("Connection rejected by server");
 
