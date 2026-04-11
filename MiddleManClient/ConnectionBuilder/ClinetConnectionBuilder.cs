@@ -10,6 +10,8 @@ namespace MiddleManClient.ConnectionBuilder
     private string _host = "localhost";
     private string _token = string.Empty;
     private bool _reconnect = false;
+    private readonly Guid _identity = Guid.NewGuid();
+
 
     public IClientConnectionBuilder WithHost(string host)
     {
@@ -43,6 +45,7 @@ namespace MiddleManClient.ConnectionBuilder
         hubConnectionBuilder = hubConnectionBuilder.WithUrl(_host, options =>
         {
           options.Headers.Add("Authorization", $"Bearer {_token}");
+          options.Headers.Add("X-Client-Identity", _identity.ToString());
           options.SkipNegotiation = true;
           options.Transports = HttpTransportType.WebSockets;
         });

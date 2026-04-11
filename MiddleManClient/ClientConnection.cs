@@ -15,10 +15,11 @@ namespace MiddleManClient
     private readonly HubConnection _connection = connection;
     private readonly List<WebSocketClientMethod> _knownMethods = [];
     private readonly Dictionary<Type, object> _methodCallingHandler = [];
-    private ServerInfo? _serverInfo;
-
-    private readonly ClientInfo info = new();
     private Assembly? _assembly;
+
+    private ServerInfo? _serverInfo;
+    private readonly ClientInfo info = new();
+
     private IClientMethodDiscoverer _methodDiscoverer = IClientMethodDiscoverer.Default;
     private IMethodFunctionHandlerGenerator _handlerGenerator = IMethodFunctionHandlerGenerator.Default;
     private IMethodParser _methodParser = IMethodParser.Default;
