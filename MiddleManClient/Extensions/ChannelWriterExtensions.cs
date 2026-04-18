@@ -4,7 +4,7 @@ namespace MiddleManClient.Extensions
 {
   public static class ChannelWriterExtensions
   {
-    public static async Task WriteChunkedData(this ChannelWriter<byte[]> writer, int chunkSize, byte[] data)
+    public static async Task WriteChunkedData(this ChannelWriter<byte[]?> writer, int chunkSize, byte[] data)
     {
       int offset = 0;
       while (offset < data.Length)

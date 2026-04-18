@@ -15,7 +15,6 @@
         IsMetadataSet = true;
         return _response;
       }
-      private set { _response = value; }
     }
   }
 }

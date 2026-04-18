@@ -7,7 +7,7 @@ namespace MiddleManClient.MethodProcessing.MethodFunctionHandlerGenerator.Method
 {
   public class SerializeAndSendResultStrategy : IMethodResultHandlingStrategy
   {
-    public async Task HandleResult(object? result, ChannelWriter<byte[]> writer, int maxChunkSize, ServerContext context)
+    public async Task HandleResult(object? result, ChannelWriter<byte[]?> writer, int maxChunkSize, ServerContext context)
     {
       var rawResult = await GetRawResult(result).ConfigureAwait(false);
 
