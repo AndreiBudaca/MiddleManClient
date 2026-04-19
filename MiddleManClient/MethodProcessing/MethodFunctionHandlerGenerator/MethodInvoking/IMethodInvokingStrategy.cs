@@ -6,7 +6,7 @@ namespace MiddleManClient.MethodProcessing.MethodFunctionHandlerGenerator.Method
 {
   public interface IMethodInvokingStrategy
   {
-    public Task<object?> Invoke(MethodInfo methodInfo, object? methodHandler, ChannelReader<byte[]> serverChannel, ServerContext context, byte[] additionalItem);
+    public Task<object?> Invoke(MethodInfo methodInfo, object? methodHandler, ChannelReader<byte[]> serverChannel, ServerContext context, byte[] additionalItem, CancellationToken cancellationToken = default);
     public object? Invoke(MethodInfo methodInfo, object? methodHandler, byte[] serverData, ServerContext context);
   }
 }

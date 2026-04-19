@@ -56,7 +56,11 @@ namespace MiddleManClient.ConnectionBuilder
         hubConnectionBuilder = hubConnectionBuilder.WithAutomaticReconnect();
       }
 
-      return new ClientConnection(hubConnectionBuilder.AddMessagePackProtocol().Build());
+      return new ClientConnection(hubConnectionBuilder
+        .AddMessagePackProtocol()
+        .WithKeepAliveInterval(TimeSpan.FromSeconds(15))
+        .Build()
+      );
     }
   }
 }

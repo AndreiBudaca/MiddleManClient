@@ -19,6 +19,7 @@ namespace MiddleManClient
 
     private ServerInfo? _serverInfo;
     private readonly ClientInfo info = new();
+    private TimeSpan _invocationTimeout = TimeSpan.FromMinutes(2);
 
     private IClientMethodDiscoverer _methodDiscoverer = IClientMethodDiscoverer.Default;
     private IMethodFunctionHandlerGenerator _handlerGenerator = IMethodFunctionHandlerGenerator.Default;
@@ -28,6 +29,12 @@ namespace MiddleManClient
     public ClientConnection RequestHttpMetadata(bool value)
     {
       info.SendHTTPMetadata = value;
+      return this;
+    }
+
+    public ClientConnection WithInvocationTimeout(TimeSpan timeout)
+    {
+      _invocationTimeout = timeout;
       return this;
     }
 
@@ -67,7 +74,7 @@ namespace MiddleManClient
     {
       var methods = _methodDiscoverer.Discover(_assembly);
 
-      _connection.Reconnected += async (string? arg) =>
+      _connection.Reconnected += async arg =>
       {
         Console.WriteLine("Reconnected to server, renegociating...");
         _serverInfo = await _connection.InvokeAsync<ServerInfo>("Negociate", info);
@@ -89,7 +96,7 @@ namespace MiddleManClient
         _knownMethods.Add(parsedMethod);
 
         _methodCallingHandler.TryGetValue(method.DeclaringType!, out var handlerInstance);
-        _handlerGenerator.GenerateHandler(_connection, method, parsedMethod, handlerInstance, _serverInfo?.MaxMessageLength ?? 4096);
+        _handlerGenerator.GenerateHandler(_connection, method, parsedMethod, handlerInstance, _serverInfo?.MaxMessageLength ?? 4096, _invocationTimeout);
       }
 
       var diff = _methodPacker.GetDiff(_serverInfo?.MethodSignature, _knownMethods);

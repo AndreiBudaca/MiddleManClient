@@ -8,9 +8,9 @@ namespace MiddleManClient.MethodProcessing.MethodFunctionHandlerGenerator.Method
 {
   public class DeserializeAndInvokeStrategy : IMethodInvokingStrategy
   {
-    public async Task<object?> Invoke(MethodInfo methodInfo, object? methodHandler, ChannelReader<byte[]> serverChannel, ServerContext context, byte[] additionalItem)
+    public async Task<object?> Invoke(MethodInfo methodInfo, object? methodHandler, ChannelReader<byte[]> serverChannel, ServerContext context, byte[] additionalItem, CancellationToken cancellationToken = default)
     {
-      var rawArgs = await ReadServerStreamDataAsync(serverChannel, additionalItem);
+      var rawArgs = await ReadServerStreamDataAsync(serverChannel, additionalItem, cancellationToken);
       return InvokeWithArgs(methodInfo, methodHandler, rawArgs, context);
     }
 
@@ -48,14 +48,14 @@ namespace MiddleManClient.MethodProcessing.MethodFunctionHandlerGenerator.Method
       return methodInfo.Invoke(methodHandler, args);
     }
 
-    private static async Task<JsonArray> ReadServerStreamDataAsync(ChannelReader<byte[]> serverChannel, byte[] additionalItem)
+    private static async Task<JsonArray> ReadServerStreamDataAsync(ChannelReader<byte[]> serverChannel, byte[] additionalItem, CancellationToken cancellationToken)
     {
       var dataStream = new MemoryStream();
       dataStream.Write(additionalItem, 0, additionalItem.Length);
 
-      await foreach (var serverData in serverChannel.ReadAllAsync())
+      await foreach (var serverData in serverChannel.ReadAllAsync().WithCancellation(cancellationToken))
       {
-        await dataStream.WriteAsync(serverData);
+        await dataStream.WriteAsync(serverData, cancellationToken);
       }
 
       dataStream.Position = 0;

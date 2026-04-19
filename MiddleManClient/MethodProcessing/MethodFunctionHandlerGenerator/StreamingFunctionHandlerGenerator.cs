@@ -11,7 +11,7 @@ namespace MiddleManClient.MethodProcessing.MethodFunctionHandlerGenerator
   {
     public bool SupportsStreaming => true;
 
-    public void GenerateHandler(HubConnection connection, MethodInfo methodInfo, WebSocketClientMethod methodDescription, object? methodHandler, int maxMessageLength)
+    public void GenerateHandler(HubConnection connection, MethodInfo methodInfo, WebSocketClientMethod methodDescription, object? methodHandler, int maxMessageLength, TimeSpan timeout)
     {
       if (!methodInfo.IsStatic && methodHandler == null)
       {
@@ -21,29 +21,37 @@ namespace MiddleManClient.MethodProcessing.MethodFunctionHandlerGenerator
       connection.On(methodDescription.Name, async (Guid session) =>
       {
         var clientChannel = Channel.CreateBounded<byte[]?>(1);
-        var serverChannel = await connection.StreamAsChannelAsync<byte[]>("SubscribeToServer", session);
-
-        await connection.SendAsync("AddReadChannel", session, clientChannel.Reader);
+        using var timeoutCts = new CancellationTokenSource(timeout);
+        var cancellationToken = timeoutCts.Token;
 
         try
         {
-          var (serverContext, additionalItem) = await ServerContextParser.ParseServerContextFromStream(serverChannel);
+          var serverChannel = await connection
+            .StreamAsChannelAsync<byte[]>("SubscribeToServer", session)
+            .WaitAsync(cancellationToken);
+
+          await connection
+            .SendAsync("AddReadChannel", session, clientChannel.Reader)
+            .WaitAsync(cancellationToken);
+
+          var (serverContext, additionalItem) = await ServerContextParser.ParseServerContextFromStream(serverChannel, cancellationToken);
 
           var result = await MethodInvokingFactory.GetInvokingStrategy(methodDescription)
-            .Invoke(methodInfo, methodHandler, serverChannel, serverContext, additionalItem);
+            .Invoke(methodInfo, methodHandler, serverChannel, serverContext, additionalItem, cancellationToken);
 
           await MethodResultHandlingFactory.GetResultHandlingStrategy(methodDescription)
-            .HandleResult(result, clientChannel.Writer, maxMessageLength, serverContext);
+            .HandleResult(result, clientChannel.Writer, maxMessageLength, serverContext, cancellationToken);
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-          Console.WriteLine(ex);
-          await clientChannel.Writer.WriteAsync(null);
+          // Avoid blocking the error path when the channel is backpressured.
+          _ = clientChannel.Writer.TryWrite(null);
+
           throw;
         }
         finally
         {
-          clientChannel.Writer.Complete();
+          clientChannel.Writer.TryComplete();
         }
       });
     }

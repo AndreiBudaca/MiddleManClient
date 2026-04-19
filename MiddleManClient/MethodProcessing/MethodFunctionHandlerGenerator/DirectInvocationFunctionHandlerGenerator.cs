@@ -11,7 +11,7 @@ namespace MiddleManClient.MethodProcessing.MethodFunctionHandlerGenerator
   {
     public bool SupportsStreaming => false;
 
-    public void GenerateHandler(HubConnection connection, MethodInfo methodInfo, WebSocketClientMethod methodDescription, object? methodHandler, int maxMessageLength)
+    public void GenerateHandler(HubConnection connection, MethodInfo methodInfo, WebSocketClientMethod methodDescription, object? methodHandler, int maxMessageLength, TimeSpan timeout)
     {
       if (!methodInfo.IsStatic && methodHandler == null)
       {
@@ -20,26 +20,18 @@ namespace MiddleManClient.MethodProcessing.MethodFunctionHandlerGenerator
 
       connection.On<DirectInvocationData, DirectInvocationResponse>(methodDescription.Name, async data =>
       {
-        try
-        {
-          var context = new ServerContext(data.Metadata ?? new HttpRequestMetadata());
-          var rawResult = MethodInvokingFactory.GetInvokingStrategy(methodDescription)
-            .Invoke(methodInfo, methodHandler, data.Data, context);
+        var context = new ServerContext(data.Metadata ?? new HttpRequestMetadata());
+        var rawResult = MethodInvokingFactory.GetInvokingStrategy(methodDescription)
+          .Invoke(methodInfo, methodHandler, data.Data, context);
 
-          var resultBytes = await MethodResultHandlingFactory.GetResultHandlingStrategy(methodDescription)
-            .HandleResult(rawResult, maxMessageLength);
+        var resultBytes = await MethodResultHandlingFactory.GetResultHandlingStrategy(methodDescription)
+          .HandleResult(rawResult, maxMessageLength);
 
-          return new DirectInvocationResponse
-          {
-            Metadata = context.IsMetadataSet ? context.Response : null,
-            Data = resultBytes
-          };
-        }
-        catch (Exception ex)
+        return new DirectInvocationResponse
         {
-          Console.WriteLine(ex);
-          throw;
-        }
+          Metadata = context.IsMetadataSet ? context.Response : null,
+          Data = resultBytes
+        };
       });
     }
   }

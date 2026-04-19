@@ -11,13 +11,13 @@ namespace MiddleMan.Core.Extensions
 
   public static class AsyncEnumerableExtensions
   {
-    public static async Task<AsyncEnumResult<T>> EnumerateUntil<T>(this IAsyncEnumerable<T[]> data, int bytesToReceive, int offset)
+    public static async Task<AsyncEnumResult<T>> EnumerateUntil<T>(this IAsyncEnumerable<T[]> data, int bytesToReceive, int offset, CancellationToken cancellationToken = default)
     {
       var received = new T[bytesToReceive];
       var totalBytesReceived = 0;
       var bytesCopied = 0;
 
-      await foreach (var item in data)
+      await foreach (var item in data.WithCancellation(cancellationToken))
       {
         // Nothing to read from this item, continue to read
         if (item == null) continue;

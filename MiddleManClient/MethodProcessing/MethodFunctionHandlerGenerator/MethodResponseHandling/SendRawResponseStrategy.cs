@@ -6,7 +6,7 @@ namespace MiddleManClient.MethodProcessing.MethodFunctionHandlerGenerator.Method
 {
   public class SendRawResponseStrategy : IMethodResultHandlingStrategy
   {
-    public async Task HandleResult(object? result, ChannelWriter<byte[]?> writer, int maxChunkSize, ServerContext context)
+    public async Task HandleResult(object? result, ChannelWriter<byte[]?> writer, int maxChunkSize, ServerContext context, CancellationToken cancellationToken = default)
     {
       if (result == null || result is not IAsyncEnumerable<byte[]> resultEnumerable)
       {
@@ -16,7 +16,7 @@ namespace MiddleManClient.MethodProcessing.MethodFunctionHandlerGenerator.Method
 
       var firstItem = true;
 
-      await foreach (var item in resultEnumerable)
+      await foreach (var item in resultEnumerable.WithCancellation(cancellationToken))
       {
         // Write metadata when first item is generated
         if (firstItem)
@@ -25,15 +25,15 @@ namespace MiddleManClient.MethodProcessing.MethodFunctionHandlerGenerator.Method
 
           if (context.IsMetadataSet)
           {
-            await writer.WriteChunkedData(maxChunkSize, context.Response.SerializeJson());
+            await writer.WriteChunkedData(maxChunkSize, context.Response.SerializeJson(), cancellationToken);
           }
           else
           {
-            await writer.WriteChunkedData(maxChunkSize, BitConverter.GetBytes(0));
+            await writer.WriteChunkedData(maxChunkSize, BitConverter.GetBytes(0), cancellationToken);
           }
         }
 
-        await writer.WriteChunkedData(maxChunkSize, item);
+        await writer.WriteChunkedData(maxChunkSize, item, cancellationToken);
       }
     }
 

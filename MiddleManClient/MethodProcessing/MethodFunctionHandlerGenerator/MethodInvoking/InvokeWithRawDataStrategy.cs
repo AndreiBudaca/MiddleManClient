@@ -7,7 +7,7 @@ namespace MiddleManClient.MethodProcessing.MethodFunctionHandlerGenerator.Method
 {
   public class InvokeWithRawDataStrategy : IMethodInvokingStrategy
   {
-    public async Task<object?> Invoke(MethodInfo methodInfo, object? methodHandler, ChannelReader<byte[]> serverChannel, ServerContext context, byte[] additionalItem)
+    public async Task<object?> Invoke(MethodInfo methodInfo, object? methodHandler, ChannelReader<byte[]> serverChannel, ServerContext context, byte[] additionalItem, CancellationToken cancellationToken = default)
     {
       var enumerable = serverChannel.ReadAllAsync();
       if (additionalItem?.Length > 0)
