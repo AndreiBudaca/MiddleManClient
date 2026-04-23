@@ -1,21 +1,23 @@
-﻿using MiddleMan.Core.Extensions;
+﻿using MiddleManClient.Buffer;
+using MiddleManClient.Extensions;
 using MiddleManClient.ServerContracts;
 using System.Threading.Channels;
 
-namespace MiddleManClient.MethodProcessing.MethodFunctionHandlerGenerator
+namespace MiddleManClient.MethodProcessing.MethodFunctionHandlerGenerator.Parsers
 {
   public class ServerContextParser
   {
     private const int MaxMetadataBytes = 64 * 1024;
 
-    public static async Task<(ServerContext, byte[] currentItem)> ParseServerContextFromStream(ChannelReader<byte[]> channelReader, CancellationToken cancellationToken = default)
+    public static async Task<(ServerContext, IContentBuffer)> ParseServerContextFromStream(ChannelReader<byte[]> channelReader, Func<IAsyncEnumerable<byte[]>, IContentBuffer> contentBufferFactory, CancellationToken cancellationToken = default)
     {
       var defaultRequestMetadata = new HttpRequestMetadata();
 
-      var serverDataEnumerable = channelReader.ReadAllAsync();
+      var serverDataEnumerable = channelReader.ReadAllAsync(cancellationToken);
 
-      var metadataLengthBytes = await serverDataEnumerable.EnumerateUntil(4, 0, cancellationToken);
-      var metadataLength = BitConverter.ToInt32(metadataLengthBytes.Received);
+      var metadataLenghtEnumerationResult = await serverDataEnumerable.EnumerateUntil(4, 0, cancellationToken);
+
+      var metadataLength = BitConverter.ToInt32(metadataLenghtEnumerationResult.Received);
 
       if (metadataLength < 0 || metadataLength > MaxMetadataBytes)
       {
@@ -24,18 +26,16 @@ namespace MiddleManClient.MethodProcessing.MethodFunctionHandlerGenerator
 
       if (metadataLength == 0)
       {
-        return new(new(defaultRequestMetadata), metadataLengthBytes.CurrentEnumerationItem);
+        return new(new(defaultRequestMetadata), contentBufferFactory(metadataLenghtEnumerationResult.Next));
       }
 
-      var metadataBytes = await serverDataEnumerable
-        .PrependItems(metadataLengthBytes.CurrentEnumerationItem)
-        .EnumerateUntil(metadataLength, 0, cancellationToken);
+      var metadataBytesEnumerationResult = await metadataLenghtEnumerationResult.Next.EnumerateUntil(metadataLength, 0, cancellationToken);
 
-      var metadataJson = System.Text.Encoding.UTF8.GetString(metadataBytes.Received);
+      var metadataJson = System.Text.Encoding.UTF8.GetString(metadataBytesEnumerationResult.Received);
       var requestMetadata = System.Text.Json.JsonSerializer.Deserialize<HttpRequestMetadata>(metadataJson);
 
       var serverContext = new ServerContext(requestMetadata ?? defaultRequestMetadata);
-      return (serverContext, metadataBytes.CurrentEnumerationItem);
+      return (serverContext, contentBufferFactory(metadataBytesEnumerationResult.Next));
     }
 
     public static (ServerContext, int bufferOffet) ParseServerContextFromBuffer(byte[] data)

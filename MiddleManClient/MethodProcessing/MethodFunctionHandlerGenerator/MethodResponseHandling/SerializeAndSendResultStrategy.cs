@@ -1,22 +1,19 @@
-﻿using MiddleManClient.Extensions;
+﻿using MiddleManClient.MethodProcessing.MethodFunctionHandlerGenerator.MethodResponseHandling.ResponseHandler;
 using MiddleManClient.ServerContracts;
 using System.Text.Json;
-using System.Threading.Channels;
 
 namespace MiddleManClient.MethodProcessing.MethodFunctionHandlerGenerator.MethodResponseHandling
 {
   public class SerializeAndSendResultStrategy : IMethodResultHandlingStrategy
   {
-    public async Task HandleResult(object? result, ChannelWriter<byte[]?> writer, int maxChunkSize, ServerContext context, CancellationToken cancellationToken = default)
+    public async Task HandleResult(object? result, ServerContext context, ResponseWritingHandler responseHandler, CancellationToken cancellationToken = default)
     {
       var rawResult = await GetRawResult(result, cancellationToken).ConfigureAwait(false);
 
-      // Write metadata after invocation is complete and task is awaited
-      await writer.WriteChunkedData(maxChunkSize, context.IsMetadataSet ? context.Response.SerializeJson() : BitConverter.GetBytes(0), cancellationToken);
+      await responseHandler.Write(context.IsMetadataSet ? context.Response.SerializeJson() : BitConverter.GetBytes(0), cancellationToken);
 
       var data = rawResult != null ? JsonSerializer.SerializeToUtf8Bytes(rawResult) : [];
-
-      await writer.WriteChunkedData(maxChunkSize, data, cancellationToken);
+      await responseHandler.Write(data, cancellationToken);
     }
 
     public async Task<byte[]> HandleResult(object? result, int maxChunkSize)

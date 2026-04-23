@@ -1,15 +1,22 @@
 ﻿using Microsoft.AspNetCore.SignalR.Client;
+using MiddleManClient.Buffer;
 using MiddleManClient.MethodProcessing.MethodFunctionHandlerGenerator.MethodInvoking;
 using MiddleManClient.MethodProcessing.MethodFunctionHandlerGenerator.MethodResponseHandling;
+using MiddleManClient.MethodProcessing.MethodFunctionHandlerGenerator.MethodResponseHandling.ResponseHandler;
+using MiddleManClient.MethodProcessing.MethodFunctionHandlerGenerator.Parsers;
 using MiddleManClient.MethodProcessing.Models;
 using System.Reflection;
 using System.Threading.Channels;
 
 namespace MiddleManClient.MethodProcessing.MethodFunctionHandlerGenerator
 {
-  public class StreamingFunctionHandlerGenerator : IMethodFunctionHandlerGenerator
+  public class StreamingFunctionHandlerGenerator(Func<IAsyncEnumerable<byte[]>, IContentBuffer> contentBufferFactory) : IMethodFunctionHandlerGenerator
   {
+    private readonly Func<IAsyncEnumerable<byte[]>, IContentBuffer> _contentBufferFactory = contentBufferFactory;
+    
     public bool SupportsStreaming => true;
+
+    public StreamingFunctionHandlerGenerator() : this(content => new MemoryBuffer(content, int.MaxValue)) { }
 
     public void GenerateHandler(HubConnection connection, MethodInfo methodInfo, WebSocketClientMethod methodDescription, object? methodHandler, int maxMessageLength, TimeSpan timeout)
     {
@@ -34,13 +41,14 @@ namespace MiddleManClient.MethodProcessing.MethodFunctionHandlerGenerator
             .SendAsync("AddReadChannel", session, clientChannel.Reader)
             .WaitAsync(cancellationToken);
 
-          var (serverContext, additionalItem) = await ServerContextParser.ParseServerContextFromStream(serverChannel, cancellationToken);
+          var (serverContext, content) = await ServerContextParser.ParseServerContextFromStream(serverChannel, _contentBufferFactory, cancellationToken);
 
           var result = await MethodInvokingFactory.GetInvokingStrategy(methodDescription)
-            .Invoke(methodInfo, methodHandler, serverChannel, serverContext, additionalItem, cancellationToken);
+            .Invoke(methodInfo, methodHandler, serverContext, content, cancellationToken);
 
+          var responseHandler = new ResponseWritingHandler(clientChannel.Writer, maxMessageLength, content);
           await MethodResultHandlingFactory.GetResultHandlingStrategy(methodDescription)
-            .HandleResult(result, clientChannel.Writer, maxMessageLength, serverContext, cancellationToken);
+            .HandleResult(result, serverContext, responseHandler, cancellationToken);
         }
         catch (Exception)
         {

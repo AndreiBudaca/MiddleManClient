@@ -1,21 +1,14 @@
-﻿using MiddleMan.Core.Extensions;
+﻿using MiddleManClient.Buffer;
 using MiddleManClient.ServerContracts;
 using System.Reflection;
-using System.Threading.Channels;
 
 namespace MiddleManClient.MethodProcessing.MethodFunctionHandlerGenerator.MethodInvoking
 {
   public class InvokeWithRawDataStrategy : IMethodInvokingStrategy
   {
-    public async Task<object?> Invoke(MethodInfo methodInfo, object? methodHandler, ChannelReader<byte[]> serverChannel, ServerContext context, byte[] additionalItem, CancellationToken cancellationToken = default)
+    public async Task<object?> Invoke(MethodInfo methodInfo, object? methodHandler, ServerContext context, IContentBuffer content, CancellationToken cancellationToken = default)
     {
-      var enumerable = serverChannel.ReadAllAsync();
-      if (additionalItem?.Length > 0)
-      {
-        enumerable = enumerable.PrependItems(additionalItem);
-      }
-
-      return methodInfo.Invoke(methodHandler, [context, enumerable]);
+      return methodInfo.Invoke(methodHandler, [context, content.Read(cancellationToken)]);
     }
 
     public object? Invoke(MethodInfo methodInfo, object? methodHandler, byte[] serverData, ServerContext context)

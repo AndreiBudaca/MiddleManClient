@@ -1,16 +1,16 @@
-﻿using MiddleManClient.ServerContracts;
+﻿using MiddleManClient.Buffer;
+using MiddleManClient.ServerContracts;
 using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using System.Threading.Channels;
 
 namespace MiddleManClient.MethodProcessing.MethodFunctionHandlerGenerator.MethodInvoking
 {
   public class DeserializeAndInvokeStrategy : IMethodInvokingStrategy
   {
-    public async Task<object?> Invoke(MethodInfo methodInfo, object? methodHandler, ChannelReader<byte[]> serverChannel, ServerContext context, byte[] additionalItem, CancellationToken cancellationToken = default)
+    public async Task<object?> Invoke(MethodInfo methodInfo, object? methodHandler, ServerContext context, IContentBuffer content, CancellationToken cancellationToken = default)
     {
-      var rawArgs = await ReadServerStreamDataAsync(serverChannel, additionalItem, cancellationToken);
+      var rawArgs = await ReadServerStreamDataAsync(content, cancellationToken);
       return InvokeWithArgs(methodInfo, methodHandler, rawArgs, context);
     }
 
@@ -48,12 +48,11 @@ namespace MiddleManClient.MethodProcessing.MethodFunctionHandlerGenerator.Method
       return methodInfo.Invoke(methodHandler, args);
     }
 
-    private static async Task<JsonArray> ReadServerStreamDataAsync(ChannelReader<byte[]> serverChannel, byte[] additionalItem, CancellationToken cancellationToken)
+    private static async Task<JsonArray> ReadServerStreamDataAsync(IContentBuffer content, CancellationToken cancellationToken)
     {
       var dataStream = new MemoryStream();
-      dataStream.Write(additionalItem, 0, additionalItem.Length);
 
-      await foreach (var serverData in serverChannel.ReadAllAsync().WithCancellation(cancellationToken))
+      await foreach (var serverData in content.Read(cancellationToken))
       {
         await dataStream.WriteAsync(serverData, cancellationToken);
       }

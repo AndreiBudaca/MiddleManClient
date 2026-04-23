@@ -1,45 +1,53 @@
-﻿using MiddleManClient.Extensions;
+﻿using MiddleManClient.MethodProcessing.MethodFunctionHandlerGenerator.MethodResponseHandling.ResponseHandler;
 using MiddleManClient.ServerContracts;
-using System.Threading.Channels;
 
 namespace MiddleManClient.MethodProcessing.MethodFunctionHandlerGenerator.MethodResponseHandling
 {
   public class SendRawResponseStrategy : IMethodResultHandlingStrategy
   {
-    public async Task HandleResult(object? result, ChannelWriter<byte[]?> writer, int maxChunkSize, ServerContext context, CancellationToken cancellationToken = default)
+    public async Task HandleResult(object? result, ServerContext context, ResponseWritingHandler responseHandler, CancellationToken cancellationToken = default)
     {
       if (result == null || result is not IAsyncEnumerable<byte[]> resultEnumerable)
       {
-        writer.Complete();
+        await WriteMetadataIfNeeded(responseHandler, context, cancellationToken);
         return;
       }
 
-      var firstItem = true;
-
+      var metadataSent = false;
       await foreach (var item in resultEnumerable.WithCancellation(cancellationToken))
       {
         // Write metadata when first item is generated
-        if (firstItem)
+        if (!metadataSent)
         {
-          firstItem = false;
-
-          if (context.IsMetadataSet)
-          {
-            await writer.WriteChunkedData(maxChunkSize, context.Response.SerializeJson(), cancellationToken);
-          }
-          else
-          {
-            await writer.WriteChunkedData(maxChunkSize, BitConverter.GetBytes(0), cancellationToken);
-          }
+          metadataSent = true;
+          await WriteMetadataIfNeeded(responseHandler, context, cancellationToken);
         }
 
-        await writer.WriteChunkedData(maxChunkSize, item, cancellationToken);
+        await responseHandler.Write(item, cancellationToken);
+      }
+
+      if (!metadataSent)
+      {
+        // If the result enumerable completed without yielding any items, we still need to send the metadata.
+        await WriteMetadataIfNeeded(responseHandler, context, cancellationToken);
       }
     }
 
     public Task<byte[]> HandleResult(object? result, int maxChunkSize)
     {
       throw new NotImplementedException();
+    }
+
+    private static async Task WriteMetadataIfNeeded(ResponseWritingHandler responseHandler, ServerContext context, CancellationToken cancellationToken)
+    {
+      if (context.IsMetadataSet)
+      {
+        await responseHandler.Write(context.Response.SerializeJson(), cancellationToken);
+      }
+      else
+      {
+        await responseHandler.Write(BitConverter.GetBytes(0), cancellationToken);
+      }
     }
   }
 }
