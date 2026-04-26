@@ -70,7 +70,44 @@ namespace MiddleManClient
       return this;
     }
 
-    public async Task StartAsync()
+    public Task<ParsedDirectInvocationResponse<T>> InvokeAsync<T>(string? userId, string clientName, string method, ParsedDirectInvocationRequest data)
+    {
+      return InvokeAsync<T>(userId, clientName, method, data.ToDirectInvocationData());
+    }
+
+    public async Task<ParsedDirectInvocationResponse<T>> InvokeAsync<T>(string? userId, string clientName, string method, DirectInvocationData data)
+    {
+      var rawResponse = await InvokeAsync(userId, clientName, method, data).ConfigureAwait(false);
+
+      T? result = default;
+      if (rawResponse.Data != null && rawResponse.Data.Length > 0)
+      {
+        result = System.Text.Json.JsonSerializer.Deserialize<T>(rawResponse.Data);
+      }
+
+      return new ParsedDirectInvocationResponse<T>
+      {
+        Metadata = rawResponse.Metadata,
+        Data = result
+      };
+    }
+
+    public Task<DirectInvocationResponse> InvokeAsync(string? userId, string clientName, string method, ParsedDirectInvocationRequest data)
+    {
+      return InvokeAsync(userId, clientName, method, data.ToDirectInvocationData());
+    }
+
+    public async Task<DirectInvocationResponse> InvokeAsync(string? userId, string clientName, string method, DirectInvocationData data)
+    {
+      if (_connections.Length == 0) throw new InvalidOperationException("At least one connection must be provided");
+
+      using var cts = new CancellationTokenSource(_invocationTimeout);
+      var connection = GetNextConnection();
+      var response = await connection.InvokeAsync<DirectInvocationResponse>("Invoke", userId, clientName, method, data, cts.Token);
+      return response;
+    }
+
+    public async Task StartAsync(bool blockThread = true)
     {
       if (_connections.Length == 0) throw new InvalidOperationException("At least one connection must be provided");
 
@@ -93,6 +130,7 @@ namespace MiddleManClient
         Console.WriteLine("Connected to server, negotiating...");
         _serverInfo = await connection.InvokeAsync<ServerInfo>("Negociate", info);
         if (!_serverInfo.IsAccepted) throw new Exception("Connection rejected by server");
+        Console.WriteLine($"Negotiation completed. Max message length: {_serverInfo.MaxMessageLength}");
       }));
 
       foreach (var method in methods)
@@ -115,10 +153,25 @@ namespace MiddleManClient
       }
 
       // Infinite wait to keep the connection alive
-      var infiniteLock = new object();
-      lock (infiniteLock)
+      if (blockThread)
       {
-        Monitor.Wait(infiniteLock);
+        var infiniteLock = new object();
+        lock (infiniteLock)
+        {
+          Monitor.Wait(infiniteLock);
+        }
+      }
+    }
+
+    private int LastUsedConnectionIndex = 0;
+    private object _connectionLock = new();
+    private HubConnection GetNextConnection()
+    {
+      lock (_connectionLock)
+      {
+        var connection = _connections[LastUsedConnectionIndex];
+        LastUsedConnectionIndex = (LastUsedConnectionIndex + 1) % _connections.Length;
+        return connection;
       }
     }
   }

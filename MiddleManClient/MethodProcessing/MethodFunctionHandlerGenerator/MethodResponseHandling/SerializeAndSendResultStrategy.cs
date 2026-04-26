@@ -19,7 +19,17 @@ namespace MiddleManClient.MethodProcessing.MethodFunctionHandlerGenerator.Method
     public async Task<byte[]> HandleResult(object? result, int maxChunkSize)
     {
       var rawResult = await GetRawResult(result, CancellationToken.None).ConfigureAwait(false);
-      var dataBytes = rawResult != null ? JsonSerializer.SerializeToUtf8Bytes(rawResult) : [];
+
+      byte[] dataBytes = [];
+
+      if (rawResult is byte[] byteArrayResult)
+      {
+        dataBytes = byteArrayResult;
+      }
+      else if (rawResult != null)
+      {
+        dataBytes = JsonSerializer.SerializeToUtf8Bytes(rawResult);
+      }
 
       if (dataBytes.Length <= maxChunkSize)
       {
