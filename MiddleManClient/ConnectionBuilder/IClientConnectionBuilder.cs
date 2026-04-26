@@ -8,6 +8,8 @@
 
     public IClientConnectionBuilder WithReconnect();
 
+    public IClientConnectionBuilder WithPoolSize(int poolSize);
+
     public ClientConnection Build();
   }
 }

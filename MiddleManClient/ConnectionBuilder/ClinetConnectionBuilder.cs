@@ -10,8 +10,7 @@ namespace MiddleManClient.ConnectionBuilder
     private string _host = "localhost";
     private string _token = string.Empty;
     private bool _reconnect = false;
-    private readonly Guid _identity = Guid.NewGuid();
-
+    private int _poolSize = 1;
 
     public IClientConnectionBuilder WithHost(string host)
     {
@@ -31,21 +30,45 @@ namespace MiddleManClient.ConnectionBuilder
       return this;
     }
 
+    public IClientConnectionBuilder WithPoolSize(int poolSize)
+    {
+      if (poolSize <= 0)
+      {
+        throw new InvalidClientOptionsException("Pool size must be greater than 0");
+      }
+
+      _poolSize = poolSize;
+      return this;
+    }
+
     public ClientConnection Build()
     {
+      var connections = new HubConnection[_poolSize];
+      for (int i = 0; i < _poolSize; i++)
+      {
+        connections[i] = BuildHubConnection();
+      }
+
+      return new ClientConnection(connections);
+    }
+
+    private HubConnection BuildHubConnection()
+    {
+      var identity = Guid.NewGuid();
+
       if (string.IsNullOrWhiteSpace(_host))
       {
         throw new InvalidClientOptionsException("Host cannot be null or empty");
       }
-      
+
       IHubConnectionBuilder hubConnectionBuilder = new HubConnectionBuilder();
 
       if (!string.IsNullOrEmpty(_token))
-      { 
+      {
         hubConnectionBuilder = hubConnectionBuilder.WithUrl(_host, options =>
         {
           options.Headers.Add("Authorization", $"Bearer {_token}");
-          options.Headers.Add("X-Client-Identity", _identity.ToString());
+          options.Headers.Add("X-Client-Identity", identity.ToString());
           options.SkipNegotiation = true;
           options.Transports = HttpTransportType.WebSockets;
         });
@@ -56,11 +79,10 @@ namespace MiddleManClient.ConnectionBuilder
         hubConnectionBuilder = hubConnectionBuilder.WithAutomaticReconnect();
       }
 
-      return new ClientConnection(hubConnectionBuilder
+      return hubConnectionBuilder
         .AddMessagePackProtocol()
         .WithKeepAliveInterval(TimeSpan.FromSeconds(15))
-        .Build()
-      );
+        .Build();
     }
   }
 }

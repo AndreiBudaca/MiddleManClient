@@ -1,0 +1,24 @@
+services:
+  middleman-client-1:
+    image: andyyy2k/middleman-client:test
+    environment:
+      MIDDLEMAN_URL: ws://172.19.0.1:8001/playground
+    restart: unless-stopped
+
+  # middleman-client-2:
+  #   image: andyyy2k/middleman-client:test
+  #   environment:
+  #     MIDDLEMAN_URL: ws://172.19.0.1:8001/playground
+  #   restart: unless-stopped
+
+  # middleman-client-3:
+  #   image: andyyy2k/middleman-client:test
+  #   environment:
+  #     MIDDLEMAN_URL: ws://172.19.0.1:8002/playground
+  #   restart: unless-stopped
+
+  # middleman-client-4:
+  #   image: andyyy2k/middleman-client:test
+  #   environment:
+  #     MIDDLEMAN_URL: ws://172.19.0.1:8002/playground
+  #   restart: unless-stopped

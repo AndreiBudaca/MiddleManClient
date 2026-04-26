@@ -10,9 +10,9 @@ using System.Reflection;
 
 namespace MiddleManClient
 {
-  public class ClientConnection(HubConnection connection)
+  public class ClientConnection(HubConnection[] connections)
   {
-    private readonly HubConnection _connection = connection;
+    private readonly HubConnection[] _connections = connections;
     private readonly List<WebSocketClientMethod> _knownMethods = [];
     private readonly Dictionary<Type, object> _methodCallingHandler = [];
     private Assembly? _assembly;
@@ -72,23 +72,28 @@ namespace MiddleManClient
 
     public async Task StartAsync()
     {
+      if (_connections.Length == 0) throw new InvalidOperationException("At least one connection must be provided");
+
       var methods = _methodDiscoverer.Discover(_assembly);
 
-      _connection.Reconnected += async arg =>
+      foreach (var connection in _connections)
       {
-        Console.WriteLine("Reconnected to server, renegociating...");
-        _serverInfo = await _connection.InvokeAsync<ServerInfo>("Negociate", info);
-        if (!_serverInfo.IsAccepted) throw new Exception("Connection rejected by server");
-      };
-
-      using (var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10)))
-      {
-        await _connection.StartAsync(cts.Token);
+        connection.Reconnected += async arg =>
+        {
+          Console.WriteLine("Reconnected to server, renegociating...");
+          _serverInfo = await connection.InvokeAsync<ServerInfo>("Negociate", info);
+          if (!_serverInfo.IsAccepted) throw new Exception("Connection rejected by server");
+        };
       }
 
-      Console.WriteLine("Connected to server, negotiating...");
-      _serverInfo = await _connection.InvokeAsync<ServerInfo>("Negociate", info);
-      if (!_serverInfo.IsAccepted) throw new Exception("Connection rejected by server");
+      await Task.WhenAll(_connections.Select(async connection =>
+      {
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        await connection.StartAsync(cts.Token);
+        Console.WriteLine("Connected to server, negotiating...");
+        _serverInfo = await connection.InvokeAsync<ServerInfo>("Negociate", info);
+        if (!_serverInfo.IsAccepted) throw new Exception("Connection rejected by server");
+      }));
 
       foreach (var method in methods)
       {
@@ -96,13 +101,17 @@ namespace MiddleManClient
         _knownMethods.Add(parsedMethod);
 
         _methodCallingHandler.TryGetValue(method.DeclaringType!, out var handlerInstance);
-        _handlerGenerator.GenerateHandler(_connection, method, parsedMethod, handlerInstance, _serverInfo?.MaxMessageLength ?? 4096, _invocationTimeout);
+
+        foreach (var connection in _connections)
+        {
+          _handlerGenerator.GenerateHandler(connection, method, parsedMethod, handlerInstance, _serverInfo?.MaxMessageLength ?? 4096, _invocationTimeout);
+        }
       }
 
       var diff = _methodPacker.GetDiff(_serverInfo?.MethodSignature, _knownMethods);
       if (diff != null && diff.Length > 0)
       {
-        await _connection.SendChunksAsync("Methods", _serverInfo?.MaxMessageLength ?? 4096, diff);
+        await _connections[0].SendChunksAsync("Methods", _serverInfo?.MaxMessageLength ?? 4096, diff);
       }
 
       // Infinite wait to keep the connection alive
