@@ -47,10 +47,22 @@ namespace MiddleManClient.MethodProcessing.MethodParsing
     private static WebSocketClientMethodArgument DescribeType(string? name, Type type, int depth = 0)
     {
       // Check for binary methods
-      if (depth == 0 && type.IsGenericType && type.GetGenericTypeDefinition() == typeof(IAsyncEnumerable<>))
+      if (depth == 0)
       {
-        var elementType = type.GetGenericArguments()[0];
-        if (elementType.IsArray && elementType.GetElementType() == typeof(byte))
+        if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(IAsyncEnumerable<>))
+        {
+          var elementType = type.GetGenericArguments()[0];
+          if (elementType.IsArray && elementType.GetElementType() == typeof(byte))
+          {
+            return new WebSocketClientMethodArgument
+            {
+              Name = name,
+              Type = type.FullName,
+              IsBinary = true,
+            };
+          }
+        }
+        else if (type.IsArray && type.GetElementType() == typeof(byte))
         {
           return new WebSocketClientMethodArgument
           {
@@ -61,7 +73,7 @@ namespace MiddleManClient.MethodProcessing.MethodParsing
         }
       }
 
-      if (depth > 32) 
+      if (depth > 32)
       {
         throw new NotSupportedException("Type depth exceeds maximum allowed depth of 32.");
       }
@@ -105,7 +117,7 @@ namespace MiddleManClient.MethodProcessing.MethodParsing
         IsNumeric = IsNumericType(type),
         IsBoolean = IsBooleanType(type),
       };
-      
+
       // Primitives
       if (type.IsPrimitive || type == typeof(string) || type == typeof(decimal))
       {
