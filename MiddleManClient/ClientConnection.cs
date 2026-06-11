@@ -16,6 +16,7 @@ namespace MiddleManClient
     private readonly List<WebSocketClientMethod> _knownMethods = [];
     private readonly Dictionary<Type, object> _methodCallingHandler = [];
     private Assembly? _assembly;
+    private bool _sendPings = true;
 
     private ServerInfo? _serverInfo;
     private readonly ClientInfo info = new();
@@ -67,6 +68,12 @@ namespace MiddleManClient
     public ClientConnection AddMethodCallingHandler<T>(T handler) where T : class
     {
       _methodCallingHandler[typeof(T)] = handler;
+      return this;
+    }
+
+    public ClientConnection WithPings(bool value)
+    {
+      _sendPings = value;
       return this;
     }
 
@@ -152,6 +159,25 @@ namespace MiddleManClient
         await _connections[0].SendChunksAsync("Methods", _serverInfo?.MaxMessageLength ?? 4096, diff);
       }
 
+      _ = Task.Run(async () =>
+      {
+        while (_sendPings)
+        {
+          try
+          {
+            await Task.Delay(TimeSpan.FromSeconds(10));
+            for (int i = 0; i < _connections.Length; i++)
+            {
+              _ = await _connections[i].InvokeAsync<string>("Ping", "Ping");
+            }
+          }
+          catch (Exception ex)
+          {
+            Console.WriteLine($"Error during ping: {ex.Message}");
+          }
+        }
+      });
+
       // Infinite wait to keep the connection alive
       if (blockThread)
       {
@@ -163,16 +189,11 @@ namespace MiddleManClient
       }
     }
 
-    private int LastUsedConnectionIndex = 0;
-    private object _connectionLock = new();
+    private uint LastUsedConnectionIndex = 0;
     private HubConnection GetNextConnection()
     {
-      lock (_connectionLock)
-      {
-        var connection = _connections[LastUsedConnectionIndex];
-        LastUsedConnectionIndex = (LastUsedConnectionIndex + 1) % _connections.Length;
-        return connection;
-      }
+      var connectionId = Interlocked.Increment(ref LastUsedConnectionIndex);
+      return _connections[connectionId % (uint)_connections.Length];
     }
   }
 }

@@ -2,7 +2,7 @@ services:
   middleman-client-1:
     image: andyyy2k/middleman-client:test
     environment:
-      MIDDLEMAN_URL: ws://172.19.0.1:8001/playground
+      MIDDLEMAN_URL: ws://172.19.0.1:5080/playground
     restart: unless-stopped
 
   # middleman-client-2:
