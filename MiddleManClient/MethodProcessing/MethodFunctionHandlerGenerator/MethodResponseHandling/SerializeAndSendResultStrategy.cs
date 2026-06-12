@@ -20,16 +20,7 @@ namespace MiddleManClient.MethodProcessing.MethodFunctionHandlerGenerator.Method
     {
       var rawResult = await GetRawResult(result, CancellationToken.None).ConfigureAwait(false);
 
-      byte[] dataBytes = [];
-
-      if (rawResult is byte[] byteArrayResult)
-      {
-        dataBytes = byteArrayResult;
-      }
-      else if (rawResult != null)
-      {
-        dataBytes = JsonSerializer.SerializeToUtf8Bytes(rawResult);
-      }
+      var dataBytes = JsonSerializer.SerializeToUtf8Bytes(rawResult);
 
       if (dataBytes.Length <= maxChunkSize)
       {

@@ -33,9 +33,39 @@ namespace MiddleManClient.MethodProcessing.MethodFunctionHandlerGenerator.Method
       }
     }
 
-    public Task<byte[]> HandleResult(object? result, int maxChunkSize)
+    public async Task<byte[]> HandleResult(object? result, int maxChunkSize)
     {
-      throw new NotImplementedException();
+      byte[] bytes = []; 
+
+      if (result == null)
+      {
+        return bytes;
+      }
+
+      if (result is byte[] byteArrayResult)
+      {
+        bytes = byteArrayResult;
+      }
+      else if (result is Task<byte[]> taskByteArrayResult)
+      {
+        bytes = await taskByteArrayResult.ConfigureAwait(false);
+      }
+      else if (result is IAsyncEnumerable<byte[]> resultEnumerable)
+      {
+        var byteList = new List<byte>();
+        await foreach (var item in resultEnumerable)
+        {
+          byteList.AddRange(item);
+        }
+        bytes = byteList.ToArray();
+      }
+      else
+      {
+        throw new InvalidOperationException("Expected result to be either a byte array or an async enumerable of byte arrays.");
+      }
+     
+
+      return bytes;
     }
 
     private static async Task WriteMetadataIfNeeded(ResponseWritingHandler responseHandler, ServerContext context, CancellationToken cancellationToken)
