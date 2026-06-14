@@ -114,6 +114,20 @@ namespace MiddleManClient
       return response;
     }
 
+    public Task SendAsync(string? userId, string clientName, string method, ParsedDirectInvocationRequest data)
+    {
+      return SendAsync(userId, clientName, method, data.ToDirectInvocationData());
+    }
+
+    public async Task SendAsync(string? userId, string clientName, string method, DirectInvocationData data)
+    {
+      if (_connections.Length == 0) throw new InvalidOperationException("At least one connection must be provided");
+
+      using var cts = new CancellationTokenSource(_invocationTimeout);
+      var connection = GetNextConnection();
+      await connection.SendAsync("Send", userId, clientName, method, data, cts.Token);
+    }
+
     public async Task StartAsync(bool blockThread = true)
     {
       if (_connections.Length == 0) throw new InvalidOperationException("At least one connection must be provided");
