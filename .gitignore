@@ -401,4 +401,3 @@ FodyWeavers.xsd
 *.ps1
 
 *Test/
-**/docker-compose.yml
