@@ -2,7 +2,7 @@
 {
   public class ServerContext(HttpRequestMetadata requestMetadata)
   {
-    private HttpResponseMetadata _response = new HttpResponseMetadata();
+    private readonly HttpResponseMetadata _response = new();
 
     public HttpRequestMetadata Request { get; } = requestMetadata;
 

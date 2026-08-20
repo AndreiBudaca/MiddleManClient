@@ -14,44 +14,26 @@ namespace MiddleManClient.MethodProcessing.MethodFunctionHandlerGenerator.Method
       return InvokeWithArgs(methodInfo, methodHandler, rawArgs, context);
     }
 
-    public object? Invoke(MethodInfo methodInfo, object? methodHandler, byte[] serverData, ServerContext context)
-    {
-      JsonArray rawArgs = [];
-
-      if (TrySendRawData(methodInfo, serverData, context, out var args))
-      {
-        return methodInfo.Invoke(methodHandler, args);
-      }
-
-      if (serverData.Length > 0)
-      {
-        rawArgs = (serverData.Length > 0 ? JsonSerializer.Deserialize<JsonArray>(serverData) : [])
-         ?? throw new InvalidOperationException($"Cannot process input data");
-      }
-
-      return InvokeWithArgs(methodInfo, methodHandler, rawArgs, context);
-    }
-
     private static object? InvokeWithArgs(MethodInfo methodInfo, object? methodHandler, JsonArray rawArgs, ServerContext context)
     {
       var parameters = methodInfo.GetParameters();
-      var args = new object?[parameters.Length];
 
-      if (parameters.Length > 0)
+      if (parameters.Length == 0) return InvokeWithArgs(methodInfo, methodHandler, []);
+
+      var args = new object?[parameters.Length];
+      int rawArgPos = 0;
+      
+      for (int i = 0; i < parameters.Length; i++)
       {
-        int rawArgPos = 0;
-        for (int i = 0; i < parameters.Length; i++)
+        if (parameters[i].ParameterType == typeof(ServerContext))
         {
-          if (parameters[i].ParameterType == typeof(ServerContext))
-          {
-            args[i] = context;
-          }
-          else
-          {
-            var rawArg = rawArgPos < rawArgs.Count ? rawArgs[rawArgPos] : null;
-            args[i] = rawArg?.Deserialize(parameters[i].ParameterType) ?? GetDefaultInstance(parameters[i].ParameterType);
-            ++rawArgPos;
-          }
+          args[i] = context;
+        }
+        else
+        {
+          var rawArg = rawArgPos < rawArgs.Count ? rawArgs[rawArgPos] : null;
+          args[i] = rawArg?.Deserialize(parameters[i].ParameterType) ?? GetDefaultInstance(parameters[i].ParameterType);
+          ++rawArgPos;
         }
       }
 
@@ -79,36 +61,7 @@ namespace MiddleManClient.MethodProcessing.MethodFunctionHandlerGenerator.Method
       }
 
       return JsonSerializer.Deserialize<JsonArray>(dataStream) ??
-         throw new InvalidOperationException($"Cannot process input data"); ;
-    }
-
-    private static bool TrySendRawData(MethodInfo methodInfo, byte[] serverData, ServerContext context, out object?[] args)
-    {
-      var parameters = methodInfo.GetParameters();
-
-      if (parameters.Length == 1 && parameters[0].ParameterType == typeof(byte[]))
-      {
-        args = [ serverData ];
-        return true;
-      }
-
-      if (parameters.Length == 2)
-      {
-        if (parameters[0].ParameterType == typeof(byte[]) && parameters[1].ParameterType == typeof(ServerContext))
-        {
-          args = [ serverData, context ];
-          return true;
-        }
-
-        if (parameters[0].ParameterType == typeof(ServerContext) && parameters[1].ParameterType == typeof(byte[]))
-        {
-          args = [ context, serverData ];
-          return true;
-        }
-      }
-
-      args = [];
-      return false;
+         throw new InvalidOperationException($"Cannot process input data");
     }
 
     private static object? GetDefaultInstance(Type t)

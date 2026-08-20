@@ -1,83 +1,24 @@
-﻿using MiddleManClient.MethodProcessing.MethodFunctionHandlerGenerator.MethodResponseHandling.ResponseHandler;
-using MiddleManClient.ServerContracts;
+﻿using MiddleManClient.Extensions;
 
 namespace MiddleManClient.MethodProcessing.MethodFunctionHandlerGenerator.MethodResponseHandling
 {
-  public class SendRawResponseStrategy : IMethodResultHandlingStrategy
+  public class KeepRawResponseStrategy : IMethodResultHandlingStrategy
   {
-    public async Task HandleResult(object? result, ServerContext context, ResponseWritingHandler responseHandler, CancellationToken cancellationToken = default)
+    public async Task<IAsyncEnumerable<byte[]>> HandleResult(object? result, CancellationToken cancellationToken)
     {
-      if (result == null || result is not IAsyncEnumerable<byte[]> resultEnumerable)
+      var awaitedResult = await result.TryAwait(cancellationToken).ConfigureAwait(false);
+
+      if (awaitedResult is byte[] bytes)
       {
-        await WriteMetadataIfNeeded(responseHandler, context, cancellationToken);
-        return;
+        return bytes.AsAsyncEnumerable();
       }
 
-      var metadataSent = false;
-      await foreach (var item in resultEnumerable.WithCancellation(cancellationToken))
+      if (awaitedResult is IAsyncEnumerable<byte[]> asyncEnumerable)
       {
-        // Write metadata when first item is generated
-        if (!metadataSent)
-        {
-          metadataSent = true;
-          await WriteMetadataIfNeeded(responseHandler, context, cancellationToken);
-        }
-
-        await responseHandler.Write(item, cancellationToken);
+        return asyncEnumerable;
       }
 
-      if (!metadataSent)
-      {
-        // If the result enumerable completed without yielding any items, we still need to send the metadata.
-        await WriteMetadataIfNeeded(responseHandler, context, cancellationToken);
-      }
-    }
-
-    public async Task<byte[]> HandleResult(object? result, int maxChunkSize)
-    {
-      byte[] bytes = []; 
-
-      if (result == null)
-      {
-        return bytes;
-      }
-
-      if (result is byte[] byteArrayResult)
-      {
-        bytes = byteArrayResult;
-      }
-      else if (result is Task<byte[]> taskByteArrayResult)
-      {
-        bytes = await taskByteArrayResult.ConfigureAwait(false);
-      }
-      else if (result is IAsyncEnumerable<byte[]> resultEnumerable)
-      {
-        var byteList = new List<byte>();
-        await foreach (var item in resultEnumerable)
-        {
-          byteList.AddRange(item);
-        }
-        bytes = byteList.ToArray();
-      }
-      else
-      {
-        throw new InvalidOperationException("Expected result to be either a byte array or an async enumerable of byte arrays.");
-      }
-     
-
-      return bytes;
-    }
-
-    private static async Task WriteMetadataIfNeeded(ResponseWritingHandler responseHandler, ServerContext context, CancellationToken cancellationToken)
-    {
-      if (context.IsMetadataSet)
-      {
-        await responseHandler.Write(context.Response.SerializeJson(), cancellationToken);
-      }
-      else
-      {
-        await responseHandler.Write(BitConverter.GetBytes(0), cancellationToken);
-      }
+      throw new InvalidOperationException($"Cannot handle result of type {awaitedResult?.GetType().FullName ?? "null"} as raw response.");
     }
   }
 }

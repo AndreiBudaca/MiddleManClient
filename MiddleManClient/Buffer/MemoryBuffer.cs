@@ -14,6 +14,8 @@ namespace MiddleManClient.Buffer
     public MemoryBuffer(IAsyncEnumerable<byte[]> contentStream, int maxCapacity) : 
       this(contentStream.GetAsyncEnumerator(), maxCapacity) { }
 
+    public bool IsCompleted => endOfStreamReached;
+
     public async ValueTask DisposeAsync()
     {
       await enumerator.DisposeAsync();

@@ -17,6 +17,8 @@ namespace MiddleManClient.Buffer
       diskBuffer = new DiskBuffer(enumerator);
     }
 
+    public bool IsCompleted => memoryBuffer.IsCompleted && diskBuffer.IsCompleted;
+
     public async ValueTask DisposeAsync()
     {
       await memoryBuffer.DisposeAsync();

@@ -19,18 +19,6 @@ namespace MiddleManClient.MethodProcessing.MethodFunctionHandlerGenerator.Method
       return methodInfo.Invoke(methodHandler, [data]);
     }
 
-    public object? Invoke(MethodInfo methodInfo, object? methodHandler, byte[] serverData, ServerContext context)
-    {
-      var (hasContext, contextPosition) = GetContextParameterInfo(methodInfo.GetParameters());
-      
-      if (hasContext)
-      {
-        return methodInfo.Invoke(methodHandler, contextPosition == 0 ? [context, serverData] : [serverData, context]);
-      }
-
-      return methodInfo.Invoke(methodHandler, [serverData]);
-    }
-
     private static (bool hasContext, int contextPosition) GetContextParameterInfo(ParameterInfo[] parameters)
     {
       for (int i = 0; i < parameters.Length; i++)

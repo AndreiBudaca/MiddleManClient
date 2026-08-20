@@ -9,6 +9,8 @@ namespace MiddleManClient.Buffer
     private readonly IAsyncEnumerator<byte[]> enumerator = enumerator;
     private bool endOfStreamReached = false;
 
+    public bool IsCompleted => endOfStreamReached;
+
     public DiskBuffer(IAsyncEnumerable<byte[]> contentStream) : this(contentStream.GetAsyncEnumerator()) { }
 
     public async IAsyncEnumerable<byte[]> Read([EnumeratorCancellation] CancellationToken cancellationToken)

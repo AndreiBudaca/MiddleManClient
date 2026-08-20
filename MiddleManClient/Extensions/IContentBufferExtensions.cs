@@ -8,5 +8,11 @@ namespace MiddleManClient.Extensions
     {
       await foreach (var _ in contentBuffer.Read(cancellationToken)) { }
     }
+
+    public static Task EnsureBuffered(this IContentBuffer contentBuffer, CancellationToken cancellationToken)
+    {
+      if (contentBuffer.IsCompleted) return Task.CompletedTask;
+      return contentBuffer.BufferAllData(cancellationToken);
+    }
   }
 }

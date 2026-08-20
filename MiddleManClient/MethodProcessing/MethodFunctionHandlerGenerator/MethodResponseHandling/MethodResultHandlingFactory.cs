@@ -8,10 +8,10 @@ namespace MiddleManClient.MethodProcessing.MethodFunctionHandlerGenerator.Method
     {
       if (methodData.Returns?.IsBinary ?? false)
       {
-        return new SendRawResponseStrategy();
+        return new KeepRawResponseStrategy();
       }
 
-      return new SerializeAndSendResultStrategy();
+      return new SerializeResultStrategy();
     }
   }
 }

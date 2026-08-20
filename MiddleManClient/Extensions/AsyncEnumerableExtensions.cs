@@ -1,4 +1,5 @@
 ﻿using System.Runtime.CompilerServices;
+using MiddleManClient.Extensions.Classes.AsyncEnumerable;
 
 namespace MiddleManClient.Extensions
 {
@@ -98,6 +99,27 @@ namespace MiddleManClient.Extensions
     public static IAsyncEnumerable<T[]> PrependItems<T>(this IAsyncEnumerable<T[]> enumerable, T[] item, CancellationToken cancellationToken)
     {
       return enumerable.GetAsyncEnumerator(cancellationToken).PrependItems(item, cancellationToken);
+    }
+
+    public static async Task<byte[]> ReadAllBytes(this IAsyncEnumerable<byte[]> data, int? maxLength = null, CancellationToken cancellationToken = default)
+    {
+      using var memoryStream = new MemoryStream();
+
+      var totalBytesRead = 0;
+      await foreach (var chunk in data.WithCancellation(cancellationToken))
+      {
+        totalBytesRead += chunk.Length;
+        if (maxLength.HasValue && totalBytesRead >= maxLength.Value) throw new InvalidDataException($"Content length exceeds the maximum allowed length of {maxLength.Value} bytes.");
+
+        await memoryStream.WriteAsync(chunk, cancellationToken);
+      }
+
+      return memoryStream.ToArray();
+    }
+
+    public static IAsyncEnumerable<T> AsAsyncEnumerable<T>(this T data)
+    {
+      return new AsyncEnumerableWrapper<T>(data);
     }
   }
 }
